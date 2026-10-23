@@ -7,12 +7,26 @@ export default function HomePage() {
         management. Staff record expenses, managers set budgets and approve
         requests, and admins manage users and departments.
       </p>
-      <a
-        href="/api/health"
-        className="rounded-md border border-neutral-300 px-4 py-2 text-sm hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
-      >
-        Check API health
-      </a>
+      <div className="flex gap-3">
+        <a
+          href="/login"
+          className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
+        >
+          Sign in
+        </a>
+        <a
+          href="/register"
+          className="rounded-md border border-neutral-300 px-4 py-2 text-sm hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
+        >
+          Create an organization
+        </a>
+        <a
+          href="/api/health"
+          className="rounded-md border border-neutral-300 px-4 py-2 text-sm hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
+        >
+          API health
+        </a>
+      </div>
     </main>
   )
 }
