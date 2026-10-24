@@ -1,15 +1,16 @@
 # Project Knowledge
 
 ## Current phase
-**Phase 1 — Authentication and roles (complete, awaiting approval).** Per `AGENTS.md`, work one phase at a time and stop for approval after each. The full build plan is in `docs/MASTER_PROMPT.md` (read it at the start of every session). Phase 0 (setup) and Phase 1 are done; Phase 2 (Expense CRUD) is next.
+**Phase 2 — Expense CRUD (complete, awaiting approval).** Per `AGENTS.md`, work one phase at a time and stop for approval after each. The full build plan is in `docs/MASTER_PROMPT.md` (read it at the start of every session). Phases 0–2 are done; Phase 3 (budgets and approvals) is next.
 
 ## Phase status
 - ✅ Phase 0 — Setup: Next.js app, cached DB conn, `/api/health`, lint/build/tests green.
 - ✅ Phase 1 — Auth: register (org + first admin), login/logout, JWT HTTP-only cookie, middleware + per-route guard, generic login error, login rate limiting (5/min), role-aware nav + dashboard shell.
-- ⬜ Phases 2–6 — not started (expense CRUD → budgets/approvals → MIS reports → admin/polish → seed/tests/docs).
+- ✅ Phase 2 — Expense CRUD: create/list/edit/delete (owner + pending only), role-scoped lists, filters/date range/status, sorting, pagination, audit entries for create/update/delete.
+- ⬜ Phases 3–6 — not started (budgets/approvals → MIS reports → admin/polish → seed/tests/docs).
 
 ## What this is
-An **Expense Tracker** MIS for a small organization — a university class project built in phases (Phase 0–6) per `docs/MASTER_PROMPT.md`. Staff record expenses, managers set budgets/approve/view reports+alerts, admin manages users/departments. Currently only Phase 0 (setup) exists: a runnable Next.js app with a working DB connection and a `/api/health` route. No domain features yet.
+An **Expense Tracker** MIS for a small organization — a university class project built in phases (Phase 0–6) per `docs/MASTER_PROMPT.md`. Staff record expenses, managers set budgets/approve/view reports+alerts, admin manages users/departments. Implemented so far: setup + health check (Phase 0), auth with roles (Phase 1), and expense CRUD (Phase 2). Budgets, approvals, reports, admin pages and the real seed are still to come.
 
 ## Tech stack (fixed by master prompt — do not substitute without asking)
 Next.js (App Router, TS) · MongoDB + Mongoose · Tailwind + shadcn/ui · Zod · bcryptjs + jose (JWT in HTTP-only cookie) · Recharts · Vitest · ESLint + Prettier. Versions in use: Next 16.4.2, React 19.3.0, Tailwind v4, Node 26.
@@ -26,11 +27,25 @@ Next.js (App Router, TS) · MongoDB + Mongoose · Tailwind + shadcn/ui · Zod ·
 - `middleware.ts` guards **pages only** (redirect to `/login` if no session; 403 on `/admin` for non-admins, `/approvals` for non-manager/admin). API routes are guarded by `lib/guard.ts`, not middleware.
 - Dev seed (Phase 1 only): `node scripts/seed-dev-users.ts` creates demo org + admin/manager/staff (`admin@example.com` etc., password `Password123!`). Real seed is `npm run seed` in Phase 6.
 
+## Expenses (Phase 2) — where things live
+- `lib/constants.ts`: `CATEGORIES` (Transport, Supplies, Meals, Utilities, Events, Other) and `EXPENSE_STATUSES`; client-safe (no server imports).
+- Models: `models/expense.ts` (indexes on `(organizationId, departmentId, date)`, `(organizationId, userId, date)`, `(organizationId, status, date)`), `models/audit-log.ts` (`AUDIT_ACTIONS` incl. approve/reject for Phase 3).
+- Shared Zod schemas: `schemas/expense.ts` — `CreateExpenseSchema`/`UpdateExpenseSchema` are `.strict()` (so clients can't inject `status`/`userId`/`organizationId`), dates are `YYYY-MM-DD` (UTC midnight, not future), `ExpenseListQuerySchema` validates filters/paging/sorting. `parseDateOnly` rejects impossible dates.
+- Service: `services/expense-service.ts` — `expenseScope(session)` is the single read-scope rule (staff=own, manager=their department, admin=org); every query also filters `organizationId`. Out-of-scope ids return 404 (no enumeration); editing/deleting a non-pending expense returns 409; audit writes go through `services/audit-service.ts`.
+- Routes: `app/api/expenses` (GET list, POST staff-only), `app/api/expenses/[id]` (GET/PATCH/DELETE; mutations staff-only). Errors use `{ error, details? }` via `lib/api-error.ts`.
+- Pages: `app/(protected)/expenses` (server-rendered list + GET filter form + sort links + pagination), `/expenses/new`, `/expenses/[id]/edit`; client components `components/expense-form.tsx`, `components/delete-expense-button.tsx`.
+- Mutations are staff-only in this phase; managers/admins get a read-only list (403 from the API).
+- Demo caveat: the demo manager/staff have no department until Phase 5, so `departmentId: null` is their "department" bucket — manager and staff see each other's department-less expenses.
+
 ## Gotchas — gotchas while building
 - `.env` must contain `JWT_SECRET` (and `MONGODB_URI`); missing `JWT_SECRET` makes every auth route 500. Added one.
+- **Atlas IP allowlist (resolved 2026-10-24).** A non-allowlisted IP makes DNS/SRV and TCP to the shards succeed while the TLS handshake is refused with `tlsv1 alert internal error` (SSL alert 80) — so `/api/health` returns 503 and every DB-backed route fails. Fix is on the Atlas side: add the machine's public IP to the cluster's IP access list. Verified working after allowlisting: `/api/health` → `{"status":"ok","db":"connected"}`.
 - Mongoose model files destructure from the **default** import (`const { Schema, model, models } = mongoose`) so they work under both Next.js and Node's native ESM loader (used by `scripts/`), which rejects named imports from CJS.
 - `tsconfig.json` excludes `scripts/` — those files are run directly by Node (`.ts` extension imports) and are not part of the Next app type-check.
 - Next 16 warns `middleware` convention is deprecated (use `proxy`); it still builds and runs — ignore for now.
+- Scripts that import a model using a `@/` alias (e.g. `models/expense.ts` → `@/lib/constants`) **cannot** run under `node file.ts`: Node's native ESM loader can't resolve the alias. Run them with `npx tsx file.mts` instead (tsx resolves `tsconfig` paths; `.mts` is needed for top-level await because `package.json` has no `"type": "module"`). Models without aliases still run under plain Node.
+- The expense form validates with the shared schema, so `parsed.data.date` is a `Date`; `JSON.stringify` would send an ISO datetime that the API's `YYYY-MM-DD` schema rejects. The form therefore sends the raw `date` string (`{ ...parsed.data, date }`). Caught by the Playwright form test.
+- Playwright browsers are not installed by `npm install`; run `npx playwright install chromium` before browser checks.
 
 ## Layout
 - `AGENTS.md` — project knowledge template (Quickstart / Architecture / Conventions sections are still empty placeholders).
