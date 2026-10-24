@@ -39,8 +39,9 @@ export default function LoginPage() {
         setFormError(data.error ?? 'Unable to sign in')
         return
       }
-      router.push('/dashboard')
-      router.refresh()
+      // replace() so the back button doesn't return to the login form. The
+      // dashboard is dynamic and refetched on navigation, so no refresh().
+      router.replace('/dashboard')
     } catch {
       setFormError('Unable to sign in. Please try again.')
     } finally {
