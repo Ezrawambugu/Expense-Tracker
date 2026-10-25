@@ -8,6 +8,7 @@ import type { FilterQuery } from 'mongoose'
 import { connectDB } from '@/lib/db'
 import { httpError } from '@/lib/api-error'
 import type { Session } from '@/lib/auth'
+import { expenseScope } from '@/services/expense-scope'
 import { recordAudit } from '@/services/audit-service'
 import { Expense, type IExpense } from '@/models/expense'
 import type {
@@ -40,16 +41,6 @@ export type ExpenseListResult = {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
-
-// Read scope by role: staff own records, managers their department, admins the
-// whole organization. Exported so permission tests can exercise it directly.
-export function expenseScope(session: Session): FilterQuery<IExpense> {
-  if (session.role === 'staff') return { userId: session.userId }
-  if (session.role === 'manager') {
-    return { departmentId: session.departmentId ?? null }
-  }
-  return {}
-}
 
 function toView(doc: IExpense): ExpenseView {
   return {
