@@ -9,6 +9,14 @@ import type { FilterQuery } from 'mongoose'
 import type { Session } from '@/lib/auth'
 import type { IExpense } from '@/models/expense'
 
+// Review scope for pending approvals (Phase 3). Only managers approve or
+// reject, and only within their own department; everyone else gets `null` so
+// callers answer 403 rather than "not found".
+export function reviewScope(session: Session): FilterQuery<IExpense> | null {
+  if (session.role !== 'manager') return null
+  return { departmentId: session.departmentId ?? { $in: [] } }
+}
+
 // staff -> own records, manager -> their department, admin -> whole org.
 export function expenseScope(session: Session): FilterQuery<IExpense> {
   if (session.role === 'staff') return { userId: session.userId }
