@@ -17,3 +17,8 @@ export function todayDateOnly(): string {
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
 }
+
+// Budget months are `YYYY-MM` strings (local calendar month for display).
+export function currentMonth(): string {
+  return todayDateOnly().slice(0, 7)
+}
