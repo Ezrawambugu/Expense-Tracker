@@ -31,11 +31,12 @@ Next.js (App Router, TS) · MongoDB + Mongoose · Tailwind + shadcn/ui · Zod ·
 - `lib/constants.ts`: `CATEGORIES` (Transport, Supplies, Meals, Utilities, Events, Other) and `EXPENSE_STATUSES`; client-safe (no server imports).
 - Models: `models/expense.ts` (indexes on `(organizationId, departmentId, date)`, `(organizationId, userId, date)`, `(organizationId, status, date)`), `models/audit-log.ts` (`AUDIT_ACTIONS` incl. approve/reject for Phase 3).
 - Shared Zod schemas: `schemas/expense.ts` — `CreateExpenseSchema`/`UpdateExpenseSchema` are `.strict()` (so clients can't inject `status`/`userId`/`organizationId`), dates are `YYYY-MM-DD` (UTC midnight, not future), `ExpenseListQuerySchema` validates filters/paging/sorting. `parseDateOnly` rejects impossible dates.
-- Service: `services/expense-service.ts` — `expenseScope(session)` is the single read-scope rule (staff=own, manager=their department, admin=org); every query also filters `organizationId`. Out-of-scope ids return 404 (no enumeration); editing/deleting a non-pending expense returns 409; audit writes go through `services/audit-service.ts`.
+- Scope: `services/expense-scope.ts` — `expenseScope(session)` is the single read-scope rule (staff=own, manager=their department, admin=org). Type-only imports (no DB), so it is unit-tested in `tests/expense-scope.test.ts`. A manager with no department matches **nothing** (not `departmentId: null`, which would expose every unassigned user's expenses).
+- Service: `services/expense-service.ts` — every query also filters `organizationId`. Out-of-scope ids return 404 (no enumeration); editing/deleting a non-pending expense returns 409; audit writes go through `services/audit-service.ts`.
 - Routes: `app/api/expenses` (GET list, POST staff-only), `app/api/expenses/[id]` (GET/PATCH/DELETE; mutations staff-only). Errors use `{ error, details? }` via `lib/api-error.ts`.
 - Pages: `app/(protected)/expenses` (server-rendered list + GET filter form + sort links + pagination), `/expenses/new`, `/expenses/[id]/edit`; client components `components/expense-form.tsx`, `components/delete-expense-button.tsx`.
 - Mutations are staff-only in this phase; managers/admins get a read-only list (403 from the API).
-- Demo caveat: the demo manager/staff have no department until Phase 5, so `departmentId: null` is their "department" bucket — manager and staff see each other's department-less expenses.
+- Demo caveat: the demo manager has no department until Phase 5 assigns one, so their `/expenses` list is empty (staff still see their own records). This is correct per the role rule, not a bug.
 
 ## Gotchas — gotchas while building
 - `.env` must contain `JWT_SECRET` (and `MONGODB_URI`); missing `JWT_SECRET` makes every auth route 500. Added one.
@@ -76,6 +77,7 @@ Next.js (App Router, TS) · MongoDB + Mongoose · Tailwind + shadcn/ui · Zod ·
 - Lint: `npm run lint` (ESLint; `.agents/**` is excluded — it's Codebuff scaffolding, not app code)
 - Format: `npm run format` / `npm run format:check` (Prettier)
 - Tests: `npm test` (Vitest; config in `vitest.config.ts`, tests in `tests/**/*.test.ts`)
+- Phase 2 e2e check: `npx tsx scripts/verify-phase2.mts` — creates a throwaway org (`Phase2 Verify *`), exercises the API and browser UI, and deletes the fixtures. Needs the dev server and `.env`; exits non-zero on failure.
 - Seed (Phase 6, not yet): `npm run seed`
 
 ## Environment
