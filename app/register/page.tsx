@@ -45,8 +45,9 @@ export default function RegisterPage() {
         setFormError(data.error ?? 'Could not create account')
         return
       }
-      router.push('/dashboard')
-      router.refresh()
+      // Same as login: replace the auth page in history and let the dynamic
+      // dashboard refetch on navigation.
+      router.replace('/dashboard')
     } catch {
       setFormError('Could not create account. Please try again.')
     } finally {
@@ -77,7 +78,10 @@ export default function RegisterPage() {
           )}
 
           <div>
-            <label htmlFor="organizationName" className="block text-sm font-medium">
+            <label
+              htmlFor="organizationName"
+              className="block text-sm font-medium"
+            >
               Organization name
             </label>
             <input
