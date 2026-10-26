@@ -97,8 +97,8 @@ export default async function ExpensesPage({
           </p>
           {session.role === 'manager' && !session.departmentId && (
             <p className="mt-1 text-xs text-neutral-500">
-              No department is assigned to you yet, so this shows expenses
-              recorded without a department.
+              No department is assigned to you yet, so there are no expenses to
+              show.
             </p>
           )}
         </div>
@@ -286,6 +286,11 @@ export default async function ExpensesPage({
                       >
                         {expense.status}
                       </span>
+                      {expense.reviewNote && (
+                        <span className="mt-1 block max-w-56 text-xs text-neutral-500">
+                          {expense.reviewNote}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {canManage ? (
