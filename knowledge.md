@@ -1,17 +1,18 @@
 # Project Knowledge
 
 ## Current phase
-**Phase 3 — Budgets and approvals (complete, awaiting approval).** Per `AGENTS.md`, work one phase at a time and stop for approval after each. The full build plan is in `docs/MASTER_PROMPT.md` (read it at the start of every session). Phases 0–3 are done; Phase 4 (MIS reports) is next.
+**Phase 4 — Processing and outputs (complete, awaiting approval).** Per `AGENTS.md`, work one phase at a time and stop for approval after each. The full build plan is in `docs/MASTER_PROMPT.md` (read it at the start of every session). Phases 0–4 are done; Phase 5 (admin + polish) is next.
 
 ## Phase status
 - ✅ Phase 0 — Setup: Next.js app, cached DB conn, `/api/health`, lint/build/tests green.
 - ✅ Phase 1 — Auth: register (org + first admin), login/logout, JWT HTTP-only cookie, middleware + per-route guard, generic login error, login rate limiting (5/min), role-aware nav + dashboard shell.
 - ✅ Phase 2 — Expense CRUD: create/list/edit/delete (owner + pending only), role-scoped lists, filters/date range/status, sorting, pagination, audit entries for create/update/delete.
 - ✅ Phase 3 — Budgets and approvals: manager budget CRUD per department/category/month, approve/reject pending expenses with an optional reason, staff see status + reason, audit entries for budget create/update/delete and approve/reject.
-- ⬜ Phases 4–6 — not started (MIS reports → admin/polish → seed/tests/docs).
+- ✅ Phase 4 — Processing and outputs (MIS core): aggregation pipelines in `services/report-service.ts` for the summary report (by category + department), budget vs actual with rule-6 statuses, 6-month trends and alerts; `/reports` page with Recharts; CSV exports; manager alert banner and staff budget status on the dashboard.
+- ⬜ Phases 5–6 — not started (admin/polish → seed/tests/docs).
 
 ## What this is
-An **Expense Tracker** MIS for a small organization — a university class project built in phases (Phase 0–6) per `docs/MASTER_PROMPT.md`. Staff record expenses, managers set budgets/approve/view reports+alerts, admin manages users/departments. Implemented so far: setup + health check (Phase 0), auth with roles (Phase 1), expense CRUD (Phase 2), and budgets + approvals (Phase 3). Reports, admin pages and the real seed are still to come.
+An **Expense Tracker** MIS for a small organization — a university class project built in phases (Phase 0–6) per `docs/MASTER_PROMPT.md`. Staff record expenses, managers set budgets/approve/view reports+alerts, admin manages users/departments. Implemented so far: setup + health check (Phase 0), auth with roles (Phase 1), expense CRUD (Phase 2), budgets + approvals (Phase 3) and MIS reports/alerts (Phase 4). Admin pages and the real seed are still to come.
 
 ## Tech stack (fixed by master prompt — do not substitute without asking)
 Next.js (App Router, TS) · MongoDB + Mongoose · Tailwind + shadcn/ui · Zod · bcryptjs + jose (JWT in HTTP-only cookie) · Recharts · Vitest · ESLint + Prettier. Versions in use: Next 16.4.2, React 19.3.0, Tailwind v4, Node 26.
@@ -50,6 +51,19 @@ Next.js (App Router, TS) · MongoDB + Mongoose · Tailwind + shadcn/ui · Zod ·
 - Pages: `app/(protected)/budgets` (server-rendered list + month/category filters + inline create form for managers; admin sees it read-only), `/budgets/[id]/edit`; `app/(protected)/approvals` (pending queue, staff names, approve/reject with optional reason; admin view is read-only). Client components: `components/budget-form.tsx`, `components/delete-budget-button.tsx`, `components/review-expense-actions.tsx`.
 - Budget-form inputs take an `idPrefix` because `/budgets` also renders a filter form with the same field names (duplicate ids otherwise).
 
+## Reports and outputs (Phase 4) — where things live
+- `lib/budget-status.ts` — rule 6 in ONE config constant (`BUDGET_THRESHOLDS = { warning: 0.8, exceeded: 1 }`) plus `percentUsed()` and `budgetStatus()` (below 80% ok, 80–100% warning, above 100% exceeded; exactly 100% stays a warning). Dependency-free so client and server share it; unit-tested in `tests/budget-status.test.ts`.
+- `services/report-scope.ts` — `reportScope(session)`: admin → whole org (`{}`), staff/manager → their own department (budget status is department data per the roles section); a user with no department matches nothing. Unit-tested in `tests/report-scope.test.ts`.
+- `services/report-service.ts` — the MIS core, all figures computed in MongoDB aggregation pipelines, never in the UI: `summaryReport` (approved total + `$facet` split by category/department, pending reported separately as awaiting — rule 5), `budgetVsActual` (one row per budget: spent/remaining/percent/status + awaiting), `budgetAlerts` (non-ok rows, worst first), `spendingTrends` (last 6 months, zero-filled). Only reads — it deliberately does NOT import `lib/api-error` (which pulls `next/server`), so verify scripts can import it under `npx tsx`.
+- `services/report-csv.ts` — pure `summaryToCsv`/`budgetToCsv` builders, split out of report-service so unit tests don't need `lib/db` (which throws at import time without `MONGODB_URI`). Tests in `tests/csv.test.ts`; escaping lives in `lib/csv.ts` (`toCsv`, CRLF rows).
+- `schemas/report.ts` — `ReportQuerySchema` / `ReportExportQuerySchema` (month reuses `BudgetMonthSchema` from `schemas/budget.ts`).
+- Route: `app/api/reports/export/route.ts` — `GET ?report=summary|budget&month=YYYY-MM`, `requireRole('admin','manager')`, returns `text/csv` + `Content-Disposition` filename (defaults to the current month).
+- Page: `app/(protected)/reports` (server component, `instant = false`) — month GET-form filter with invalid-month fallback notice, stat cards (total approved / awaiting), budget vs actual table, category + department breakdowns, Recharts line/bar charts, CSV links. Staff are redirected to `/dashboard` (middleware 403s `/reports` for them too).
+- Components: `components/budget-vs-actual-table.tsx` (server-rendered table + exported `BudgetStatusBadge`; `showDepartment` for admins) and `components/report-charts.tsx` (client; `TrendChart` line + `CategoryChart` bar, colours via `currentColor` so dark mode works).
+- Dashboard (`app/(protected)/dashboard/page.tsx`): managers get the alert banner + list (Phase 4 output c, links to `/budgets` and `/reports` as the MIS feedback loop); staff get a read-only department budget-status table for the current month (roles section). Admins get neither (spec puts the banner on the *manager* dashboard).
+- `lib/format.ts` gained `formatPercent(ratio)` (`0.875 → "87.5%"`).
+- Decisions: budget-vs-actual rows are budgets only — approved spend in a category with no budget shows up in the summary report, not the table; `/reports` nav link (admin+manager) is now live; category order everywhere follows the fixed `CATEGORIES` constant (Transport, Supplies, Meals, Utilities, Events, Other).
+
 ## Gotchas — gotchas while building
 - `.env` must contain `JWT_SECRET` (and `MONGODB_URI`); missing `JWT_SECRET` makes every auth route 500. Added one.
 - **Atlas IP allowlist (resolved 2026-10-24).** A non-allowlisted IP makes DNS/SRV and TCP to the shards succeed while the TLS handshake is refused with `tlsv1 alert internal error` (SSL alert 80) — so `/api/health` returns 503 and every DB-backed route fails. Fix is on the Atlas side: add the machine's public IP to the cluster's IP access list. Verified working after allowlisting: `/api/health` → `{"status":"ok","db":"connected"}`.
@@ -61,6 +75,11 @@ Next.js (App Router, TS) · MongoDB + Mongoose · Tailwind + shadcn/ui · Zod ·
 - Playwright browsers are not installed by `npm install`; run `npx playwright install chromium` before browser checks.
 - UI checks must wait for hydration before typing: a controlled input filled pre-hydration loses its value and a click falls through to a native form submit. The verify scripts wait for `__reactProps` on the target element first.
 - Deleting `.next` while `next dev` is running leaves Turbopack in a reload loop (`✓ Compiled` on every request, the page reloads forever). Stop the dev server before `rm -rf .next` / `npm run build` and restart it afterwards.
+- `pkill -f "next dev"` inside a shell command matches the *invoking shell's own* command line and kills it (silent, no output). Use `pkill -f "[n]ext dev"`.
+- Mongoose casts ids for `.find()` but NOT inside `aggregate()` pipelines — `$match` needs `new mongoose.Types.ObjectId(...)` manually or nothing matches.
+- The `Department` collection's own key is `_id`; a scope of `{ departmentId: ... }` must be mapped to `{ _id: ... }` before filtering `Department.find()` (otherwise the query matches nothing). Budget/Expense documents do have a `departmentId` field.
+- Recharts 3: the line layer class is on the `<g>` (`svg path… .recharts-line-curve` matches either way, but `svg.recharts-line-curve` does NOT — the `<svg>` itself is `.recharts-surface`), and **zero-dimension bars are filtered out**, so a bar chart only renders rectangles for non-zero categories.
+- `npx prettier --check .` fails on 12 pre-existing files (`.agents/**`, `lib/auth.ts`, `lib/guard.ts`, `app/(protected)/layout.tsx`, …) that Phase 4 never touched — run `npx prettier --check` on changed files instead, or format the repo separately.
 
 ## Layout
 - `AGENTS.md` — project knowledge template (Quickstart / Architecture / Conventions sections are still empty placeholders).
@@ -93,6 +112,7 @@ Next.js (App Router, TS) · MongoDB + Mongoose · Tailwind + shadcn/ui · Zod ·
 - Tests: `npm test` (Vitest; config in `vitest.config.ts`, tests in `tests/**/*.test.ts`)
 - Phase 2 e2e check: `npx tsx scripts/verify-phase2.mts` — creates a throwaway org (`Phase2 Verify *`), exercises the API and browser UI, and deletes the fixtures. Needs the dev server and `.env`; exits non-zero on failure.
 - Phase 3 e2e check: `npx tsx scripts/verify-phase3.mts` — throwaway org (`Phase3 Verify *`) with two departments; verifies budget CRUD/scopes/409s, approve/reject (+reason), staff status visibility, cross-department 404s, role denials and audit rows, plus the browser UI. Cleans up its fixtures; exits non-zero on failure.
+- Phase 4 e2e check: `npx tsx scripts/verify-phase4.mts` — throwaway orgs (`Phase4 Verify *`) with hand-computed fixtures (approved 750/400/250 against budgets 1000/500/200 → ok/warning/exceeded, pending 100 awaiting, 5-month trend line, second org for isolation); asserts the report service, CSV exports, `/reports`, dashboards and charts against those exact numbers. Cleans up; exits non-zero on failure. **45/45 as of Phase 4.**
 - Seed (Phase 6, not yet): `npm run seed`
 
 ## Environment
