@@ -14,6 +14,7 @@ const PUBLIC_PATHS = new Set(['/login', '/register', '/'])
 const ROLE_PATHS: { prefix: string; roles: string[] }[] = [
   { prefix: '/admin', roles: ['admin'] },
   { prefix: '/approvals', roles: ['manager', 'admin'] },
+  { prefix: '/budgets', roles: ['manager', 'admin'] },
 ]
 
 export async function middleware(req: NextRequest) {

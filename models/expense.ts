@@ -19,6 +19,8 @@ export interface IExpense {
   status: (typeof EXPENSE_STATUSES)[number]
   reviewedBy: string | null
   reviewedAt: Date | null
+  // Optional note from the manager who approved/rejected the expense.
+  reviewNote: string | null
   createdAt: Date
 }
 
@@ -46,6 +48,7 @@ const ExpenseSchema = new Schema({
   },
   reviewedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
   reviewedAt: { type: Date, default: null },
+  reviewNote: { type: String, default: null, trim: true, maxlength: 200 },
   createdAt: { type: Date, default: Date.now },
 })
 

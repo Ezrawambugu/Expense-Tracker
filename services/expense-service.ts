@@ -8,11 +8,13 @@ import type { FilterQuery } from 'mongoose'
 import { connectDB } from '@/lib/db'
 import { httpError } from '@/lib/api-error'
 import type { Session } from '@/lib/auth'
+import { expenseScope, reviewScope } from '@/services/expense-scope'
 import { recordAudit } from '@/services/audit-service'
 import { Expense, type IExpense } from '@/models/expense'
 import type {
   CreateExpenseInput,
   ExpenseListQuery,
+  ReviewExpenseInput,
   UpdateExpenseInput,
 } from '@/schemas/expense'
 
@@ -28,6 +30,7 @@ export type ExpenseView = {
   status: IExpense['status']
   reviewedBy: string | null
   reviewedAt: string | null
+  reviewNote: string | null
   createdAt: string
 }
 
@@ -40,16 +43,6 @@ export type ExpenseListResult = {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
-
-// Read scope by role: staff own records, managers their department, admins the
-// whole organization. Exported so permission tests can exercise it directly.
-export function expenseScope(session: Session): FilterQuery<IExpense> {
-  if (session.role === 'staff') return { userId: session.userId }
-  if (session.role === 'manager') {
-    return { departmentId: session.departmentId ?? null }
-  }
-  return {}
-}
 
 function toView(doc: IExpense): ExpenseView {
   return {
@@ -64,6 +57,7 @@ function toView(doc: IExpense): ExpenseView {
     status: doc.status,
     reviewedBy: doc.reviewedBy ? String(doc.reviewedBy) : null,
     reviewedAt: doc.reviewedAt ? doc.reviewedAt.toISOString() : null,
+    reviewNote: doc.reviewNote ?? null,
     createdAt: doc.createdAt.toISOString(),
   }
 }
@@ -200,6 +194,51 @@ export async function updateExpense(
     organizationId: session.organizationId,
     userId: session.userId,
     action: 'update',
+    entity: 'Expense',
+    entityId: String(doc._id),
+  })
+
+  return toView(doc)
+}
+
+// Managers approve/reject pending expenses in their department (admins
+// organization-wide). Approving or rejecting writes an audit entry (rule 7).
+export async function reviewExpense(
+  session: Session,
+  id: string,
+  input: ReviewExpenseInput,
+): Promise<ExpenseView> {
+  const scope = reviewScope(session)
+  if (!scope) throw httpError(403, 'Forbidden')
+
+  await connectDB()
+
+  if (!mongoose.isValidObjectId(id)) throw httpError(404, 'Expense not found')
+
+  // Scoped lookup: a record in another department is indistinguishable from a
+  // missing one (404), so IDs can't be probed.
+  const doc = await Expense.findOne({
+    _id: id,
+    organizationId: session.organizationId,
+    ...scope,
+  })
+
+  if (!doc) throw httpError(404, 'Expense not found')
+  if (doc.status !== 'pending') {
+    throw httpError(409, 'Only pending expenses can be reviewed')
+  }
+
+  doc.status = input.action === 'approve' ? 'approved' : 'rejected'
+  doc.reviewedBy = session.userId
+  doc.reviewedAt = new Date()
+  doc.reviewNote = input.reason?.trim() || null
+
+  await doc.save()
+
+  await recordAudit({
+    organizationId: session.organizationId,
+    userId: session.userId,
+    action: input.action === 'approve' ? 'approve' : 'reject',
     entity: 'Expense',
     entityId: String(doc._id),
   })
