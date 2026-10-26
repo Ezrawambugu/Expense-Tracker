@@ -18,6 +18,11 @@ export function todayDateOnly(): string {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
 }
 
+// Percent used is a ratio (0.875 -> "87.5%").
+export function formatPercent(ratio: number): string {
+  return `${(ratio * 100).toFixed(1)}%`
+}
+
 // Budget months are `YYYY-MM` strings (local calendar month for display).
 export function currentMonth(): string {
   return todayDateOnly().slice(0, 7)
