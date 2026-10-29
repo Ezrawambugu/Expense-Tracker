@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { CATEGORIES } from '@/lib/constants'
 import { currentMonth } from '@/lib/format'
 import { CreateBudgetSchema, UpdateBudgetSchema } from '@/schemas/budget'
+import { useToast } from '@/components/toast'
 
 type FieldErrors = Record<string, string[]>
 
@@ -33,6 +34,7 @@ export function BudgetForm({
   idPrefix?: string
 }) {
   const router = useRouter()
+  const { toast } = useToast()
   const [month, setMonth] = useState(initial?.month ?? currentMonth())
   const [category, setCategory] = useState(initial?.category ?? 'Transport')
   const [amount, setAmount] = useState(initial?.amount ?? '')
@@ -78,6 +80,7 @@ export function BudgetForm({
         return
       }
 
+      toast(mode === 'create' ? 'Budget created' : 'Changes saved')
       router.push('/budgets')
       router.refresh()
     } catch {
