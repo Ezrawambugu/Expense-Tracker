@@ -16,3 +16,9 @@ export type Category = (typeof CATEGORIES)[number]
 export const EXPENSE_STATUSES = ['pending', 'approved', 'rejected'] as const
 
 export type ExpenseStatus = (typeof EXPENSE_STATUSES)[number]
+
+// Roles from the master prompt. Lives here (not models/user.ts) so admin
+// forms and schemas can use it without pulling mongoose into the browser.
+export const USER_ROLES = ['admin', 'manager', 'staff'] as const
+
+export type UserRole = (typeof USER_ROLES)[number]

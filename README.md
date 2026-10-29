@@ -4,7 +4,7 @@ A small-organization **Management Information System (MIS)** for expense managem
 
 ## Status
 
-Built in phases. **Current phase: 2 — Expense CRUD.** Full documentation (MIS explanation, features by role, seed data, demo accounts, API reference) lands in Phase 6.
+Built in phases. **Current phase: 5 — Admin and polish.** Full documentation (MIS explanation, features by role, seed data, demo accounts, API reference) lands in Phase 6.
 
 ## Tech Stack
 
