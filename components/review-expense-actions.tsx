@@ -2,11 +2,13 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useToast } from '@/components/toast'
 
 // Approve or reject a pending expense. Rejecting reveals an optional reason,
 // which the API stores on the expense so staff can see why it was rejected.
 export function ReviewExpenseActions({ expenseId }: { expenseId: string }) {
   const router = useRouter()
+  const { toast } = useToast()
   const [rejecting, setRejecting] = useState(false)
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
@@ -30,6 +32,7 @@ export function ReviewExpenseActions({ expenseId }: { expenseId: string }) {
       }
       setRejecting(false)
       setReason('')
+      toast(action === 'approve' ? 'Expense approved' : 'Expense rejected')
       router.refresh()
     } catch {
       setError('Unable to review the expense. Please try again.')
