@@ -1,7 +1,7 @@
 # Project Knowledge
 
 ## Current phase
-**Phase 5 — Admin and polish (complete, awaiting approval).** Per `AGENTS.md`, work one phase at a time and stop for approval after each. The full build plan is in `docs/MASTER_PROMPT.md` (read it at the start of every session). Phases 0–5 are done; Phase 6 (seed, tests, docs) is next.
+**All phases (0–6) are approved and complete.** The build plan in `docs/MASTER_PROMPT.md` is fully delivered. Per `AGENTS.md`, knowledge.md records the approved phase state; start any new work as a fresh, separately approved request.
 
 ## Phase status
 - ✅ Phase 0 — Setup: Next.js app, cached DB conn, `/api/health`, lint/build/tests green.
@@ -9,11 +9,11 @@
 - ✅ Phase 2 — Expense CRUD: create/list/edit/delete (owner + pending only), role-scoped lists, filters/date range/status, sorting, pagination, audit entries for create/update/delete.
 - ✅ Phase 3 — Budgets and approvals: manager budget CRUD per department/category/month, approve/reject pending expenses with an optional reason, staff see status + reason, audit entries for budget create/update/delete and approve/reject.
 - ✅ Phase 4 — Processing and outputs (MIS core): aggregation pipelines in `services/report-service.ts` for the summary report (by category + department), budget vs actual with rule-6 statuses, 6-month trends and alerts; `/reports` page with Recharts; CSV exports; manager alert banner and staff budget status on the dashboard.
-- ✅ Phase 5 — Admin and polish: admin user management (create, assign role/department, deactivate/reactivate) and department management (create/rename/delete with reference guards) at `/admin/users` and `/admin/departments`; toast messages, class-based light/dark theme with toggle, loading state, responsive tables; security headers incl. CSP, session role/department now DB-fresh, validation + `{ error, details? }` envelope audited across every route.
-- ⬜ Phase 6 — not started (seed, tests, docs).
+- ✅ Phase 5 — Admin and polish (approved): admin user management (create, assign role/department, deactivate/reactivate) and department management (create/rename/delete with reference guards) at `/admin/users` and `/admin/departments`; toast messages, class-based light/dark theme with toggle, loading state, responsive tables; security headers incl. CSP, session role/department now DB-fresh, validation + `{ error, details? }` envelope audited across every route.
+- ✅ Phase 6 — Seed, tests, docs (approved): `npm run seed` (`scripts/seed.mts`) creates 1 org, 3 departments, 8 users (1 admin, 2 managers, 5 staff), 24 budgets (3 months x departments) and 22 expenses sized so the current month shows Operations Transport ok (750/1000), Meals warning (420/500 = 84%), Supplies exceeded (250/200) → alerts out of the box; idempotent (rebuilds budgets/expenses, repairs users). Vitest now 75/75: added `tests/budget-scope.test.ts` (role matrix) and `tests/report-service.test.ts` (13 tests, DB boundary mocked: zero-fill, rounding, rule 1 org scoping, rule 5 approved-only, rule 6 statuses, alert ordering, trend labels). README rewritten (MIS table, features by role, setup, env vars, seed + demo accounts, full API summary, security notes, limitations, future work). E2E: `scripts/verify-seed.mts` (7/7, seeded data renders in the browser) plus Phase 5 regression 62/62.
 
 ## What this is
-An **Expense Tracker** MIS for a small organization — a university class project built in phases (Phase 0–6) per `docs/MASTER_PROMPT.md`. Staff record expenses, managers set budgets/approve/view reports+alerts, admin manages users/departments. Implemented so far: setup + health check (Phase 0), auth with roles (Phase 1), expense CRUD (Phase 2), budgets + approvals (Phase 3), MIS reports/alerts (Phase 4) and admin pages + polish (Phase 5). The real seed is still to come.
+An **Expense Tracker** MIS for a small organization — a university class project built in phases (Phase 0–6) per `docs/MASTER_PROMPT.md`. Staff record expenses, managers set budgets/approve/view reports+alerts, admin manages users/departments. All seven phases are now built: setup + health check (Phase 0), auth with roles (Phase 1), expense CRUD (Phase 2), budgets + approvals (Phase 3), MIS reports/alerts (Phase 4), admin pages + polish (Phase 5) and seed/tests/docs (Phase 6).
 
 ## Tech stack (fixed by master prompt — do not substitute without asking)
 Next.js (App Router, TS) · MongoDB + Mongoose · Tailwind + shadcn/ui · Zod · bcryptjs + jose (JWT in HTTP-only cookie) · Recharts · Vitest · ESLint + Prettier. Versions in use: Next 16.4.2, React 19.3.0, Tailwind v4, Node 26.
@@ -125,12 +125,13 @@ Next.js (App Router, TS) · MongoDB + Mongoose · Tailwind + shadcn/ui · Zod ·
 - Production build + start: `npm run build` then `npm run start`
 - Lint: `npm run lint` (ESLint; `.agents/**` is excluded — it's Codebuff scaffolding, not app code)
 - Format: `npm run format` / `npm run format:check` (Prettier)
-- Tests: `npm test` (Vitest; config in `vitest.config.ts`, tests in `tests/**/*.test.ts`)
+- Tests: `npm test` (Vitest; config in `vitest.config.ts`, tests in `tests/**/*.test.ts`) — **75 tests / 10 files as of Phase 6** (budget status, expense/budget schemas, expense/review/budget/report scopes, CSV, health, report aggregation with the DB mocked).
 - Phase 2 e2e check: `npx tsx scripts/verify-phase2.mts` — creates a throwaway org (`Phase2 Verify *`), exercises the API and browser UI, and deletes the fixtures. Needs the dev server and `.env`; exits non-zero on failure.
 - Phase 3 e2e check: `npx tsx scripts/verify-phase3.mts` — throwaway org (`Phase3 Verify *`) with two departments; verifies budget CRUD/scopes/409s, approve/reject (+reason), staff status visibility, cross-department 404s, role denials and audit rows, plus the browser UI. Cleans up its fixtures; exits non-zero on failure.
 - Phase 4 e2e check: `npx tsx scripts/verify-phase4.mts` — throwaway orgs (`Phase4 Verify *`) with hand-computed fixtures (approved 750/400/250 against budgets 1000/500/200 → ok/warning/exceeded, pending 100 awaiting, 5-month trend line, second org for isolation); asserts the report service, CSV exports, `/reports`, dashboards and charts against those exact numbers. Cleans up; exits non-zero on failure. **45/45 as of Phase 4.**
 - Phase 5 e2e check: `npx tsx scripts/verify-phase5.mts` — throwaway orgs (`Phase5 Verify *`, plus a second org for isolation): admin API access control, user CRUD + self/last-admin lockout guards + deactivate/reactivate, department CRUD with user/budget reference guards, audit rows, security headers, validation sweep, and browser UI (toasts, theme toggle persistence, staff 403). Cleans up; exits non-zero on failure. **62/62 as of Phase 5** (green against dev and prod).
-- Seed (Phase 6, not yet): `npm run seed`
+- Seed: `npm run seed` (`npx tsx scripts/seed.mts`) — the Phase 6 demo seed: org "Demo Organization", departments Operations/Finance/Outreach, 8 users (admin/manager/manager2/staff..staff5, all `Password123!`), budgets for the current + previous 2 months, 22 expenses (3 pending). Idempotent: rebuilds the demo org's budgets/expenses and repairs users by email; seeds days clamped to today so no expense is in the future. Current-month statuses are fixed by fixture: ok/warning/exceeded in Operations (verified via `budgetVsActual` + browser).
+- Seed UI check: `npx tsx scripts/verify-seed.mts` — logs in as the seeded manager/staff/admin and asserts the alert banner (125.0%/84.0%), report figures (750/1000, awaiting 180.00), staff budget table and admin 3-department view. **7/7.**
 
 ## Environment
 `.env` holds `MONGODB_URI` (a complete self-contained Atlas `mongodb+srv://` URI — credentials embedded, no separate username/password substitution needed), `JWT_SECRET`, `NODE_ENV`. `.env` is gitignored; `.env.example` is committed as the template. Build loads `.env` automatically.
