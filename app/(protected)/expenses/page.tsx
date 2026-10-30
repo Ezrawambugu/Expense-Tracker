@@ -71,7 +71,7 @@ export default async function ExpensesPage({
 
   const scopeNote: Record<typeof session.role, string> = {
     staff: 'Your expenses',
-    manager: 'Expenses in your department',
+    manager: 'Expenses in your department, plus your own',
     admin: 'All expenses in your organization',
   }
 
@@ -102,7 +102,8 @@ export default async function ExpensesPage({
             </p>
           )}
         </div>
-        {session.role === 'staff' && (
+        {/* Managers record their own expenses too (Phase 7B). */}
+        {session.role !== 'admin' && (
           <Link
             href="/expenses/new"
             className="rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
@@ -260,8 +261,9 @@ export default async function ExpensesPage({
               </tr>
             ) : (
               result.items.map((expense) => {
+                // Owner only, pending only — same rule for staff and managers
+                // (an admin never owns an expense).
                 const canManage =
-                  session.role === 'staff' &&
                   expense.userId === session.userId &&
                   expense.status === 'pending'
 

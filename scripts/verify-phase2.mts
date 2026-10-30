@@ -44,6 +44,7 @@ type ExpenseJson = {
   organizationId: string
   departmentId: string | null
   userId: string
+  submitterRole: string
   category: string
   amount: number
   date: string
@@ -345,10 +346,25 @@ async function main() {
       (await byId(manager, e1, 'PATCH', { amount: 1 })).status === 403 &&
       (await byId(manager, e1, 'DELETE')).status === 403,
   )
+  // Phase 7B: managers record their own expenses too (an admin reviews them).
+  const mgrOwn = await mk(manager, {
+    category: 'Other',
+    amount: 1,
+    date: day(0),
+    description: 'Manager own expense',
+  })
   check(
-    'manager cannot create expenses (403)',
-    (await mk(manager, { category: 'Other', amount: 1, date: day(0) }))
-      .status === 403,
+    'manager creates their own expense (201, submitterRole manager)',
+    mgrOwn.status === 201 &&
+      mgrOwn.json?.expense?.submitterRole === 'manager' &&
+      mgrOwn.json?.expense?.departmentId === String(deptA),
+    mgrOwn.json,
+  )
+  check(
+    'manager edits and deletes their own pending expense (200)',
+    (await byId(manager, mgrOwn.json!.expense!.id, 'PATCH', { amount: 2 }))
+      .status === 200 &&
+      (await byId(manager, mgrOwn.json!.expense!.id, 'DELETE')).status === 200,
   )
   check(
     'admin can read any org expense but cannot mutate (403)',
@@ -671,15 +687,16 @@ async function uiChecks(emails: {
     }
     check('UI delete removes the row', rowGone)
 
-    // Manager: read-only department list, no row actions.
+    // Manager: can record their own expenses, but has no row actions on other
+    // people's department rows (Phase 7B).
     const manager = await newPage(emails.managerEmail)
     await manager.goto(`${BASE}/expenses`, { waitUntil: 'domcontentloaded' })
     check(
-      'UI manager has no "New expense" action',
-      (await manager.getByRole('link', { name: /new expense/i }).count()) === 0,
+      'UI manager has a "New expense" action (Phase 7B)',
+      (await manager.getByRole('link', { name: /new expense/i }).count()) === 1,
     )
     check(
-      'UI manager sees no edit/delete actions on department rows',
+      "UI manager sees no edit/delete actions on other people's rows",
       (await manager.getByRole('link', { name: /^edit$/i }).count()) === 0 &&
         (await manager.getByRole('button', { name: /^delete$/i }).count()) ===
           0,
