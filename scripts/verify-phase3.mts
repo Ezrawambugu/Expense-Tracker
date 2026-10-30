@@ -59,6 +59,7 @@ type ExpenseJson = {
   organizationId: string
   departmentId: string | null
   userId: string
+  submitterRole: string
   category: string
   amount: number
   date: string
@@ -686,9 +687,156 @@ async function main() {
     reason: 'Duplicate claim',
   })
   check(
-    'admins cannot review expenses (403 — only managers approve)',
-    adminReview.status === 403,
+    'an admin cannot review a staff expense (404 — staff go to their manager)',
+    adminReview.status === 404,
     adminReview.json,
+  )
+
+  // ---------- Phase 7B: managers record their own expenses ----------
+  const mgrExpense = await mkExpense(manager, {
+    category: 'Transport',
+    amount: 42,
+    date: day(-1),
+    description: 'G manager own transport',
+  })
+  check(
+    'a manager records their own expense (201: submitterRole manager, their department, pending)',
+    mgrExpense.status === 201 &&
+      mgrExpense.json?.expense?.submitterRole === 'manager' &&
+      mgrExpense.json?.expense?.departmentId === String(deptA._id) &&
+      mgrExpense.json?.expense?.userId === String(mgrA._id) &&
+      mgrExpense.json?.expense?.status === 'pending',
+    mgrExpense.json,
+  )
+  const mgrExpenseId = mgrExpense.json!.expense!.id
+
+  const injectSubmitter = await mkExpense(manager, {
+    category: 'Other',
+    amount: 5,
+    date: day(0),
+    submitterRole: 'staff',
+  })
+  check(
+    'an expense body cannot set submitterRole (400, rule 3)',
+    injectSubmitter.status === 400,
+    injectSubmitter.json,
+  )
+
+  const ownReview = await review(manager, mgrExpenseId, { action: 'approve' })
+  check(
+    'a manager cannot review their own expense (404)',
+    ownReview.status === 404,
+    ownReview.json,
+  )
+
+  // The queue pages are server-rendered, so their HTML is the cheapest way to
+  // prove each role's review queue contents.
+  const managerQueue = await api(manager, 'GET', '/approvals')
+  check(
+    "the manager's approvals page never lists their own expense",
+    managerQueue.status === 200 &&
+      !managerQueue.text.includes('G manager own transport'),
+    managerQueue.status,
+  )
+
+  const adminQueue = await api(admin, 'GET', '/approvals')
+  check(
+    "the admin's approvals page lists pending manager expenses",
+    adminQueue.status === 200 &&
+      adminQueue.text.includes('G manager own transport'),
+    adminQueue.status,
+  )
+
+  const adminApprovesMgr = await review(admin, mgrExpenseId, {
+    action: 'approve',
+  })
+  check(
+    'an admin approves a manager expense (200, approved, not the manager)',
+    adminApprovesMgr.status === 200 &&
+      adminApprovesMgr.json?.expense?.status === 'approved' &&
+      !!adminApprovesMgr.json?.expense?.reviewedBy &&
+      adminApprovesMgr.json?.expense?.reviewedBy !== String(mgrA._id),
+    adminApprovesMgr.json,
+  )
+
+  const staffExpenseByManager = await api(
+    manager,
+    'PATCH',
+    `/api/expenses/${e3Id}`,
+    {
+      amount: 26,
+    },
+  )
+  check(
+    "a manager cannot edit another staff member's expense (403)",
+    staffExpenseByManager.status === 403,
+    staffExpenseByManager.json,
+  )
+
+  const mgrDraft = await mkExpense(manager, {
+    category: 'Events',
+    amount: 10,
+    date: day(0),
+    description: 'H manager draft',
+  })
+  const mgrDraftId = mgrDraft.json!.expense!.id
+  const mgrEdit = await api(manager, 'PATCH', `/api/expenses/${mgrDraftId}`, {
+    amount: 12,
+  })
+  check(
+    'a manager edits their own pending expense (200)',
+    mgrEdit.status === 200 && mgrEdit.json?.expense?.amount === 12,
+    mgrEdit.json,
+  )
+
+  const mgrDelete = await api(manager, 'DELETE', `/api/expenses/${mgrDraftId}`)
+  check(
+    'a manager deletes their own pending expense (200)',
+    mgrDelete.status === 200 && mgrDelete.json?.success === true,
+    mgrDelete.json,
+  )
+
+  const adminPatch = await api(
+    admin,
+    'PATCH',
+    `/api/expenses/${mgrExpenseId}`,
+    {
+      amount: 50,
+    },
+  )
+  check(
+    'admins stay read-only for expenses (403)',
+    adminPatch.status === 403,
+    adminPatch.json,
+  )
+
+  // Phase 7B: approved manager expenses count toward the department budget.
+  const transportBudget = await mkBudget(manager, {
+    category: 'Transport',
+    amount: 500,
+    month: month(0),
+  })
+  check(
+    'manager creates a budget for the budget-counting check (201)',
+    transportBudget.status === 201,
+    transportBudget.json,
+  )
+
+  const { budgetVsActual } = await import('../services/report-service.ts')
+  const mgrBudgetRows = await budgetVsActual(
+    {
+      userId: String(mgrA._id),
+      organizationId: String(orgV._id),
+      departmentId: String(deptA._id),
+      role: 'manager',
+    },
+    month(0),
+  )
+  const transportRow = mgrBudgetRows.find((row) => row.category === 'Transport')
+  check(
+    "an approved manager expense counts toward the department's budget (spent 42)",
+    transportRow?.spent === 42,
+    transportRow,
   )
 
   const badAction = await review(manager, e3Id, { action: 'maybe' })

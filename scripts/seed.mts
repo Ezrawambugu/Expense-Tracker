@@ -434,6 +434,7 @@ async function main() {
         organizationId,
         departmentId: deptIds.get(line.department),
         userId: await idOf(line.user),
+        submitterRole: 'staff',
         category: line.category,
         amount: line.amount,
         date,
@@ -449,6 +450,19 @@ async function main() {
   console.log(
     `Expenses: ${expenseCount} inserted across 3 months (${pendingCount} pending).`,
   )
+
+  // 6) Migration (Phase 7B): expenses recorded before submitterRole existed
+  //    were all staff submissions. Backfill them so the review queues and the
+  //    role matrix can rely on the field for every historical document.
+  const migrated = await Expense.updateMany(
+    { submitterRole: { $exists: false } },
+    { $set: { submitterRole: 'staff' } },
+  )
+  if (migrated.modifiedCount) {
+    console.log(
+      `Migrated ${migrated.modifiedCount} expense(s) to submitterRole "staff".`,
+    )
+  }
 
   console.log('\nSeed complete.')
   console.log(`Demo accounts (password: ${PASSWORD}):`)

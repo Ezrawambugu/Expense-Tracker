@@ -23,6 +23,7 @@ export type ExpenseView = {
   organizationId: string
   departmentId: string | null
   userId: string
+  submitterRole: IExpense['submitterRole']
   category: IExpense['category']
   amount: number
   date: string
@@ -50,6 +51,8 @@ function toView(doc: IExpense): ExpenseView {
     organizationId: String(doc.organizationId),
     departmentId: doc.departmentId ? String(doc.departmentId) : null,
     userId: String(doc.userId),
+    // Documents created before Phase 7B have no submitterRole field.
+    submitterRole: doc.submitterRole ?? 'staff',
     category: doc.category,
     amount: doc.amount,
     date: doc.date.toISOString(),
@@ -62,17 +65,11 @@ function toView(doc: IExpense): ExpenseView {
   }
 }
 
-export async function listExpenses(
-  session: Session,
+// Shared query runner: callers pass the already-scoped filter.
+async function runList(
+  filter: FilterQuery<IExpense>,
   query: ExpenseListQuery,
 ): Promise<ExpenseListResult> {
-  await connectDB()
-
-  const filter: FilterQuery<IExpense> = {
-    organizationId: session.organizationId,
-    ...expenseScope(session),
-  }
-
   if (query.category) filter.category = query.category
   if (query.status) filter.status = query.status
 
@@ -107,16 +104,54 @@ export async function listExpenses(
   }
 }
 
+export async function listExpenses(
+  session: Session,
+  query: ExpenseListQuery,
+): Promise<ExpenseListResult> {
+  await connectDB()
+
+  return runList(
+    { organizationId: session.organizationId, ...expenseScope(session) },
+    query,
+  )
+}
+
+// The approvals queue: only expenses the caller may actually approve or reject,
+// so a manager never sees their own submissions and an admin never sees staff
+// expenses.
+export async function listReviewQueue(
+  session: Session,
+  query: ExpenseListQuery,
+): Promise<ExpenseListResult> {
+  const scope = reviewScope(session)
+  if (!scope) throw httpError(403, 'Forbidden')
+
+  await connectDB()
+  return runList({ organizationId: session.organizationId, ...scope }, query)
+}
+
 export async function createExpense(
   session: Session,
   input: CreateExpenseInput,
 ): Promise<ExpenseView> {
+  // A manager's expense belongs to their department (it is what their budget
+  // counts and what an admin sees in the review queue), so it cannot exist
+  // without one.
+  if (session.role === 'manager' && !session.departmentId) {
+    throw httpError(
+      400,
+      'You need a department before you can record an expense',
+    )
+  }
+
   await connectDB()
 
   const doc = await Expense.create({
     organizationId: session.organizationId,
     departmentId: session.departmentId ?? null,
     userId: session.userId,
+    // From the session, never from the request body (Phase 7B).
+    submitterRole: session.role === 'manager' ? 'manager' : 'staff',
     category: input.category,
     amount: input.amount,
     date: input.date,
@@ -172,11 +207,9 @@ export async function updateExpense(
   })
 
   if (!doc) throw httpError(404, 'Expense not found')
-  // Defense in depth: the route already requires the staff role.
-  if (
-    session.role !== 'staff' ||
-    String(doc.userId) !== String(session.userId)
-  ) {
+  // Owner only. Managers see their whole department but may only change their
+  // own records (the route already excludes admins).
+  if (String(doc.userId) !== String(session.userId)) {
     throw httpError(403, 'Forbidden')
   }
   if (doc.status !== 'pending') {
@@ -201,8 +234,10 @@ export async function updateExpense(
   return toView(doc)
 }
 
-// Managers approve/reject pending expenses in their department (admins
-// organization-wide). Approving or rejecting writes an audit entry (rule 7).
+// Approve/reject a pending expense the caller may review: a manager reviews
+// staff expenses in their own department, an admin reviews manager expenses.
+// Both rules live in reviewScope, so an out-of-scope id is 404 (never approve
+// your own expense). Writes an audit entry (rule 7).
 export async function reviewExpense(
   session: Session,
   id: string,
@@ -261,10 +296,7 @@ export async function deleteExpense(
   })
 
   if (!doc) throw httpError(404, 'Expense not found')
-  if (
-    session.role !== 'staff' ||
-    String(doc.userId) !== String(session.userId)
-  ) {
+  if (String(doc.userId) !== String(session.userId)) {
     throw httpError(403, 'Forbidden')
   }
   if (doc.status !== 'pending') {
