@@ -4,6 +4,7 @@ import { getSession } from '@/lib/session'
 import { listReviewQueue } from '@/services/expense-service'
 import { ExpenseListQuerySchema } from '@/schemas/expense'
 import { userNames } from '@/services/directory-service'
+import { getOrganizationSettings } from '@/services/organization-service'
 import { formatAmount, formatDateOnly } from '@/lib/format'
 import { ReviewExpenseActions } from '@/components/review-expense-actions'
 
@@ -25,7 +26,10 @@ export default async function ApprovalsPage() {
     pageSize: 100,
   })
 
-  const result = await listReviewQueue(session, query)
+  const [result, settings] = await Promise.all([
+    listReviewQueue(session, query),
+    getOrganizationSettings(session),
+  ])
   const names = await userNames(
     session,
     result.items.map((expense) => expense.userId),
@@ -103,7 +107,7 @@ export default async function ApprovalsPage() {
                     {expense.description || '—'}
                   </td>
                   <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
-                    {formatAmount(expense.amount)}
+                    {formatAmount(expense.amount, settings.currency)}
                   </td>
                   <td className="px-4 py-3">
                     <ReviewExpenseActions expenseId={expense.id} />

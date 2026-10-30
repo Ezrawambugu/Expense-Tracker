@@ -7,7 +7,7 @@ import { DepartmentsTable } from '@/components/admin/departments-table'
 // Reads the session cookie on every request — blocking route (cacheComponents).
 export const instant = false
 
-// /admin/departments — create, rename and delete departments.
+// /admin/departments — create, rename, archive and delete departments.
 // Middleware 403s non-admins; this re-check is defense-in-depth.
 export default async function AdminDepartmentsPage() {
   const session = await getSession()
@@ -21,8 +21,9 @@ export default async function AdminDepartmentsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Departments</h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Departments group users, budgets and expenses. A department can only
-          be deleted once its members and budgets have been moved.
+          Departments group users, budgets and expenses. Archive one to retire
+          it while keeping its name in historical reports; a permanent delete is
+          only allowed once nothing references it.
         </p>
       </div>
 

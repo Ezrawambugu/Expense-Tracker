@@ -6,6 +6,7 @@ import { ReportExportQuerySchema } from '@/schemas/report'
 import { budgetVsActual, summaryReport } from '@/services/report-service'
 import { budgetToCsv, summaryToCsv } from '@/services/report-csv'
 import { budgetToXlsx, summaryToXlsx } from '@/services/report-xlsx'
+import { getOrganizationSettings } from '@/services/organization-service'
 import { currentMonth } from '@/lib/format'
 
 const XLSX_TYPE =
@@ -32,13 +33,20 @@ export async function GET(req: NextRequest) {
   const month = parsed.data.month ?? currentMonth()
 
   try {
+    // Headers name the organization's currency (Phase 7D).
+    const settings = await getOrganizationSettings(guard.session)
+
     if (format === 'xlsx') {
       const body =
         report === 'summary'
-          ? await summaryToXlsx(await summaryReport(guard.session, month))
+          ? await summaryToXlsx(
+              await summaryReport(guard.session, month),
+              settings.currency,
+            )
           : await budgetToXlsx(
               await budgetVsActual(guard.session, month),
               month,
+              settings.currency,
             )
 
       return new NextResponse(new Uint8Array(body), {
@@ -52,8 +60,14 @@ export async function GET(req: NextRequest) {
 
     const csv =
       report === 'summary'
-        ? summaryToCsv(await summaryReport(guard.session, month))
-        : budgetToCsv(await budgetVsActual(guard.session, month))
+        ? summaryToCsv(
+            await summaryReport(guard.session, month),
+            settings.currency,
+          )
+        : budgetToCsv(
+            await budgetVsActual(guard.session, month),
+            settings.currency,
+          )
 
     return new NextResponse(csv, {
       headers: {

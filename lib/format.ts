@@ -1,10 +1,27 @@
 // Display helpers shared by server and client components.
 
-export function formatAmount(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount)
+import { DEFAULT_CURRENCY } from '@/lib/constants'
+
+// Amounts are formatted in the organization's currency (Phase 7D) and never
+// converted. An unknown code would make Intl throw, so fall back to a plain
+// number rather than breaking the page.
+export function formatAmount(
+  amount: number,
+  currency: string = DEFAULT_CURRENCY,
+): string {
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount)
+  } catch {
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount)
+  }
 }
 
 // Expense dates are stored as UTC midnight; show the calendar date as entered.

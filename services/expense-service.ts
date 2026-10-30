@@ -11,6 +11,7 @@ import type { Session } from '@/lib/auth'
 import { expenseScope, reviewScope } from '@/services/expense-scope'
 import { recordAudit } from '@/services/audit-service'
 import { Expense, type IExpense } from '@/models/expense'
+import { Department } from '@/models/department'
 import type {
   CreateExpenseInput,
   ExpenseListQuery,
@@ -145,6 +146,23 @@ export async function createExpense(
   }
 
   await connectDB()
+
+  // Archived departments are historical (Phase 7D): members keep reading
+  // their records but cannot add new spending to them.
+  if (session.departmentId) {
+    const department = await Department.findOne({
+      _id: session.departmentId,
+      organizationId: session.organizationId,
+    })
+      .select('isArchived')
+      .lean<{ isArchived?: boolean } | null>()
+    if (department?.isArchived) {
+      throw httpError(
+        400,
+        'Your department is archived, so you cannot record new expenses.',
+      )
+    }
+  }
 
   const doc = await Expense.create({
     organizationId: session.organizationId,

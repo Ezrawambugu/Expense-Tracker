@@ -11,6 +11,7 @@ import { recordAudit } from '@/services/audit-service'
 import { User, type IUser, type Role } from '@/models/user'
 import { Department } from '@/models/department'
 import { Budget } from '@/models/budget'
+import { Expense } from '@/models/expense'
 import type {
   CreateUserInput,
   DepartmentNameInput,
@@ -34,6 +35,10 @@ export type AdminDepartmentView = {
   id: string
   name: string
   userCount: number
+  budgetCount: number
+  expenseCount: number
+  isArchived: boolean
+  archivedAt: string | null
   createdAt: string
 }
 
@@ -54,16 +59,26 @@ function isDuplicateKey(err: unknown): boolean {
 }
 
 // Rejects a departmentId that doesn't belong to the caller's organization, so
-// an admin can never attach users to another tenant's department.
+// an admin can never attach users to another tenant's department. Archived
+// departments cannot receive new users (Phase 7D).
 async function assertOrgDepartment(
   session: Session,
   departmentId: string,
 ): Promise<void> {
-  const exists = await Department.exists({
+  const department = await Department.findOne({
     _id: departmentId,
     organizationId: session.organizationId,
   })
-  if (!exists) throw httpError(400, 'The selected department does not exist')
+    .select('isArchived')
+    .lean<{ isArchived?: boolean } | null>()
+  if (!department)
+    throw httpError(400, 'The selected department does not exist')
+  if (department.isArchived) {
+    throw httpError(
+      400,
+      'That department is archived. Choose an active department.',
+    )
+  }
 }
 
 // ---------- Users ----------
@@ -169,7 +184,11 @@ export async function updateUser(
   }
 
   if (input.departmentId !== undefined) {
-    if (input.departmentId) {
+    // Only a *change* needs an active department: users already in an archived
+    // department may still have their role or name edited.
+    const changed =
+      String(input.departmentId ?? '') !== String(user.departmentId ?? '')
+    if (input.departmentId && changed) {
       await assertOrgDepartment(session, input.departmentId)
     }
     user.departmentId = input.departmentId
@@ -238,33 +257,106 @@ export async function resetUserPassword(
 
 // ---------- Departments ----------
 
+type DepartmentCounts = {
+  userCount: number
+  budgetCount: number
+  expenseCount: number
+}
+
+type DepartmentDoc = {
+  _id: unknown
+  name: string
+  isArchived?: boolean
+  archivedAt?: Date | null
+  createdAt: Date
+}
+
+function toDepartmentView(
+  doc: DepartmentDoc,
+  counts: DepartmentCounts,
+): AdminDepartmentView {
+  return {
+    id: String(doc._id),
+    name: doc.name,
+    userCount: counts.userCount,
+    budgetCount: counts.budgetCount,
+    expenseCount: counts.expenseCount,
+    isArchived: doc.isArchived ?? false,
+    archivedAt: doc.archivedAt ? doc.archivedAt.toISOString() : null,
+    createdAt: doc.createdAt.toISOString(),
+  }
+}
+
+async function referenceCounts(
+  session: Session,
+  departmentId: unknown,
+): Promise<DepartmentCounts> {
+  const filter = {
+    organizationId: session.organizationId,
+    departmentId,
+  }
+  const [userCount, budgetCount, expenseCount] = await Promise.all([
+    User.countDocuments(filter),
+    Budget.countDocuments(filter),
+    Expense.countDocuments(filter),
+  ])
+  return { userCount, budgetCount, expenseCount }
+}
+
+// Counts per department in one round trip each; lets the admin table explain
+// why a hard delete is refused without an extra request per row.
+async function countByDepartment(
+  session: Session,
+  collection: 'users' | 'budgets' | 'expenses',
+): Promise<Map<string, number>> {
+  const group = (rows: { _id: unknown; count: number }[]) =>
+    new Map(rows.map((row) => [String(row._id), row.count] as const))
+
+  const match = {
+    organizationId: new mongoose.Types.ObjectId(session.organizationId),
+  }
+  const pipeline = [
+    { $match: match },
+    { $group: { _id: '$departmentId', count: { $sum: 1 } } },
+  ]
+
+  if (collection === 'users') {
+    return group(
+      await User.aggregate<{ _id: unknown; count: number }>(pipeline),
+    )
+  }
+  if (collection === 'budgets') {
+    return group(
+      await Budget.aggregate<{ _id: unknown; count: number }>(pipeline),
+    )
+  }
+  return group(
+    await Expense.aggregate<{ _id: unknown; count: number }>(pipeline),
+  )
+}
+
 export async function listDepartments(
   session: Session,
 ): Promise<AdminDepartmentView[]> {
   await connectDB()
 
-  const docs = await Department.find({ organizationId: session.organizationId })
-    .sort({ name: 1 })
-    .lean<{ _id: unknown; name: string; createdAt: Date }[]>()
-
-  const counts = await User.aggregate<{ _id: unknown; count: number }>([
-    {
-      $match: {
-        organizationId: new mongoose.Types.ObjectId(session.organizationId),
-      },
-    },
-    { $group: { _id: '$departmentId', count: { $sum: 1 } } },
+  const [docs, userCounts, budgetCounts, expenseCounts] = await Promise.all([
+    Department.find({ organizationId: session.organizationId })
+      .sort({ name: 1 })
+      .lean<DepartmentDoc[]>(),
+    countByDepartment(session, 'users'),
+    countByDepartment(session, 'budgets'),
+    countByDepartment(session, 'expenses'),
   ])
-  const countById = new Map(
-    counts.map((row) => [String(row._id), row.count] as const),
-  )
 
-  return docs.map((doc) => ({
-    id: String(doc._id),
-    name: doc.name,
-    userCount: countById.get(String(doc._id)) ?? 0,
-    createdAt: doc.createdAt.toISOString(),
-  }))
+  return docs.map((doc) => {
+    const id = String(doc._id)
+    return toDepartmentView(doc, {
+      userCount: userCounts.get(id) ?? 0,
+      budgetCount: budgetCounts.get(id) ?? 0,
+      expenseCount: expenseCounts.get(id) ?? 0,
+    })
+  })
 }
 
 export async function createDepartment(
@@ -292,12 +384,11 @@ export async function createDepartment(
       entity: 'Department',
       entityId: String(department._id),
     })
-    return {
-      id: String(department._id),
-      name: department.name,
+    return toDepartmentView(department, {
       userCount: 0,
-      createdAt: department.createdAt.toISOString(),
-    }
+      budgetCount: 0,
+      expenseCount: 0,
+    })
   } catch (err) {
     // Unique (organizationId, name) index catches the concurrent-create race.
     if (isDuplicateKey(err)) {
@@ -348,21 +439,88 @@ export async function updateDepartment(
     entityId: String(department._id),
   })
 
-  const userCount = await User.countDocuments({
-    organizationId: session.organizationId,
-    departmentId: department._id,
-  })
-  return {
-    id: String(department._id),
-    name: department.name,
-    userCount,
-    createdAt: department.createdAt.toISOString(),
-  }
+  return toDepartmentView(
+    department,
+    await referenceCounts(session, department._id),
+  )
 }
 
-// Deleting a department is refused while users or budgets still reference it —
-// silently reassigning them would corrupt reports and budget scope. Expenses
-// keep their departmentId as history and reports fall back to a generic name.
+// Archiving keeps the department (and its name in old reports) but stops new
+// users, budgets and expenses from being assigned to it (Phase 7D).
+export async function archiveDepartment(
+  session: Session,
+  id: string,
+): Promise<AdminDepartmentView> {
+  if (!mongoose.isValidObjectId(id))
+    throw httpError(404, 'Department not found')
+
+  await connectDB()
+
+  const department = await Department.findOne({
+    _id: id,
+    organizationId: session.organizationId,
+  })
+  if (!department) throw httpError(404, 'Department not found')
+  if (department.isArchived) {
+    throw httpError(409, 'That department is already archived')
+  }
+
+  department.isArchived = true
+  department.archivedAt = new Date()
+  await department.save()
+
+  await recordAudit({
+    organizationId: session.organizationId,
+    userId: session.userId,
+    action: 'update',
+    entity: 'Department',
+    entityId: String(department._id),
+  })
+
+  return toDepartmentView(
+    department,
+    await referenceCounts(session, department._id),
+  )
+}
+
+export async function unarchiveDepartment(
+  session: Session,
+  id: string,
+): Promise<AdminDepartmentView> {
+  if (!mongoose.isValidObjectId(id))
+    throw httpError(404, 'Department not found')
+
+  await connectDB()
+
+  const department = await Department.findOne({
+    _id: id,
+    organizationId: session.organizationId,
+  })
+  if (!department) throw httpError(404, 'Department not found')
+  if (!department.isArchived) {
+    throw httpError(409, 'That department is not archived')
+  }
+
+  department.isArchived = false
+  department.archivedAt = null
+  await department.save()
+
+  await recordAudit({
+    organizationId: session.organizationId,
+    userId: session.userId,
+    action: 'update',
+    entity: 'Department',
+    entityId: String(department._id),
+  })
+
+  return toDepartmentView(
+    department,
+    await referenceCounts(session, department._id),
+  )
+}
+
+// Hard delete is only allowed when nothing at all references the department,
+// including expenses (Phase 7D). Archive is the normal way to retire one.
 export async function deleteDepartment(
   session: Session,
   id: string,
@@ -401,6 +559,19 @@ export async function deleteDepartment(
       budgets === 1
         ? '1 budget still belongs to this department. Delete it first.'
         : `${budgets} budgets still belong to this department. Delete them first.`,
+    )
+  }
+
+  const expenses = await Expense.countDocuments({
+    organizationId: session.organizationId,
+    departmentId: department._id,
+  })
+  if (expenses > 0) {
+    throw httpError(
+      409,
+      expenses === 1
+        ? '1 expense still references this department. Archive it instead.'
+        : `${expenses} expenses still reference this department. Archive it instead.`,
     )
   }
 

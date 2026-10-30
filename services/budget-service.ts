@@ -9,6 +9,7 @@ import type { Session } from '@/lib/auth'
 import { budgetScope } from '@/services/budget-scope'
 import { recordAudit } from '@/services/audit-service'
 import { Budget, type IBudget } from '@/models/budget'
+import { Department } from '@/models/department'
 import type {
   BudgetListQuery,
   CopyBudgetsInput,
@@ -56,6 +57,23 @@ function toView(doc: IBudget): BudgetView {
 
 function isDuplicateKey(err: unknown): boolean {
   return (err as { code?: number }).code === DUPLICATE_KEY
+}
+
+// Archived departments keep their existing budgets read-only (Phase 7D): no
+// new budgets and no copies into them.
+async function assertActiveDepartment(session: Session): Promise<void> {
+  const department = await Department.findOne({
+    _id: session.departmentId,
+    organizationId: session.organizationId,
+  })
+    .select('isArchived')
+    .lean<{ isArchived?: boolean } | null>()
+  if (department?.isArchived) {
+    throw httpError(
+      400,
+      'Your department is archived, so new budgets cannot be added.',
+    )
+  }
 }
 
 export async function listBudgets(
@@ -118,6 +136,7 @@ export async function createBudget(
   }
 
   await connectDB()
+  await assertActiveDepartment(session)
 
   const duplicate = await Budget.findOne({
     organizationId: session.organizationId,
@@ -242,6 +261,7 @@ export async function copyBudgets(
   }
 
   await connectDB()
+  await assertActiveDepartment(session)
 
   const [source, existing] = await Promise.all([
     Budget.find({

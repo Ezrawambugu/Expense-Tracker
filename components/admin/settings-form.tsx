@@ -8,16 +8,20 @@ import {
 } from '@/lib/budget-status'
 import { useToast } from '@/components/toast'
 
-// Phase 7C: the organization's warning line. Stored as a ratio (0.8 = 80%);
-// the form edits the percentage to keep it human-readable.
+// Phase 7C/7D: the organization's warning line and display currency. The
+// threshold is stored as a ratio (0.8 = 80%) but edited as a ratio too, so the
+// value the admin sees matches the API. Currency is an ISO 4217 code.
 export function SettingsForm({
   initialThreshold,
+  initialCurrency,
 }: {
   initialThreshold: number
+  initialCurrency: string
 }) {
   const router = useRouter()
   const { toast } = useToast()
   const [threshold, setThreshold] = useState(String(initialThreshold))
+  const [currency, setCurrency] = useState(initialCurrency)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -39,7 +43,10 @@ export function SettingsForm({
       const res = await fetch('/api/admin/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ warningThreshold: value }),
+        body: JSON.stringify({
+          warningThreshold: value,
+          currency: currency.trim().toUpperCase(),
+        }),
       })
 
       if (!res.ok) {
@@ -97,6 +104,27 @@ export function SettingsForm({
             = {Math.round(Number(threshold) * 100)}%
           </span>
         </div>
+      </div>
+
+      <div>
+        <label htmlFor="currency" className="block text-sm font-medium">
+          Currency
+        </label>
+        <p className="mt-1 text-xs text-neutral-500">
+          A three-letter ISO code (for example KES, USD, EUR). It changes how
+          amounts are displayed and labelled in exports; existing amounts are
+          never converted.
+        </p>
+        <input
+          id="currency"
+          type="text"
+          required
+          maxLength={3}
+          autoComplete="off"
+          value={currency}
+          onChange={(e) => setCurrency(e.target.value.toUpperCase())}
+          className="mt-2 w-28 rounded-md border border-neutral-300 bg-transparent px-3 py-2 text-sm uppercase focus:border-neutral-500 focus:outline-none dark:border-neutral-700"
+        />
       </div>
 
       <button

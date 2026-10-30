@@ -37,6 +37,7 @@ const { Budget } = await import('../models/budget.ts')
 const { AuditLog } = await import('../models/audit-log.ts')
 const { summaryReport, budgetVsActual, spendingTrends, budgetAlerts } =
   await import('../services/report-service.ts')
+const { formatAmount } = await import('../lib/format.ts')
 
 const BASE = process.env.VERIFY_BASE ?? 'http://localhost:3000'
 const PASS = 'VerifyPass123!'
@@ -632,8 +633,8 @@ async function main() {
   )
   check(
     'CSV summary: totals match the fixtures exactly',
-    csvSum.text.includes(`Total approved,1400\r\n`) &&
-      csvSum.text.includes(`Awaiting approval,100\r\n`) &&
+    csvSum.text.includes(`Total approved (KES),1400\r\n`) &&
+      csvSum.text.includes(`Awaiting approval (KES),100\r\n`) &&
       csvSum.text.includes(`Transport,750\r\n`) &&
       csvSum.text.includes(`Meals,400\r\n`) &&
       csvSum.text.includes(`Supplies,250\r\n`) &&
@@ -650,7 +651,7 @@ async function main() {
     'CSV budget: header carries the carry-over and available columns (Phase 7C)',
     csvBudget.status === 200 &&
       csvBudget.text.startsWith(
-        'Department,Category,Budget,Carried over,Available,Spent,Remaining,Percent used,Status,Awaiting approval',
+        'Department,Category,Budget (KES),Carried over (KES),Available (KES),Spent (KES),Remaining (KES),Percent used,Status,Awaiting approval (KES)',
       ),
     csvBudget.text.split('\r\n')[0],
   )
@@ -706,7 +707,7 @@ async function main() {
   check(
     'CSV export without month defaults to the current month',
     csvDefaultMonth.status === 200 &&
-      csvDefaultMonth.text.includes('Total approved,1400'),
+      csvDefaultMonth.text.includes('Total approved (KES),1400'),
     csvDefaultMonth.status,
   )
 
@@ -847,7 +848,7 @@ async function main() {
     adminCookie,
     'PATCH',
     '/api/admin/settings',
-    { warningThreshold: 0.8, currency: 'KES' },
+    { warningThreshold: 0.8, name: 'Hacked' },
   )
   check(
     'settings reject thresholds outside 0.5–0.95 and extra fields (400)',
@@ -1037,12 +1038,12 @@ async function uiChecks(opts: {
     check(
       'UI budget vs actual table matches the fixtures',
       tableText.includes('Transport') &&
-        tableText.includes('1,000.00') &&
-        tableText.includes('750.00') &&
+        tableText.includes(formatAmount(1000, 'KES')) &&
+        tableText.includes(formatAmount(750, 'KES')) &&
         tableText.includes('75.0%') &&
         tableText.includes('Warning') &&
         tableText.includes('Exceeded') &&
-        tableText.includes('-50.00'),
+        tableText.includes(formatAmount(-50, 'KES')),
       tableText,
     )
     check(
