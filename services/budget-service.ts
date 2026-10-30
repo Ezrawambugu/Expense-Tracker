@@ -11,6 +11,7 @@ import { recordAudit } from '@/services/audit-service'
 import { Budget, type IBudget } from '@/models/budget'
 import type {
   BudgetListQuery,
+  CopyBudgetsInput,
   CreateBudgetInput,
   UpdateBudgetInput,
 } from '@/schemas/budget'
@@ -22,7 +23,14 @@ export type BudgetView = {
   category: IBudget['category']
   amount: number
   month: string
+  carryOver: boolean
   createdAt: string
+}
+
+export type CopyBudgetsResult = {
+  month: string
+  created: number
+  skipped: number
 }
 
 export type BudgetListResult = {
@@ -40,6 +48,8 @@ function toView(doc: IBudget): BudgetView {
     category: doc.category,
     amount: doc.amount,
     month: doc.month,
+    // Documents created before Phase 7C have no flag.
+    carryOver: doc.carryOver ?? false,
     createdAt: doc.createdAt.toISOString(),
   }
 }
@@ -127,6 +137,7 @@ export async function createBudget(
       category: input.category,
       amount: input.amount,
       month: input.month,
+      carryOver: input.carryOver ?? false,
     })
   } catch (err) {
     // Two concurrent creates: the unique index catches the loser.
@@ -190,6 +201,7 @@ export async function updateBudget(
   if (input.category !== undefined) doc.category = input.category
   if (input.amount !== undefined) doc.amount = input.amount
   if (input.month !== undefined) doc.month = input.month
+  if (input.carryOver !== undefined) doc.carryOver = input.carryOver
 
   try {
     await doc.save()
@@ -212,6 +224,81 @@ export async function updateBudget(
   })
 
   return toView(doc)
+}
+
+// Copy every budget of a source month into a target month (Phase 7C), skipping
+// categories that already have a budget there. Audits each created budget
+// (rule 7) and reports how many were created and skipped.
+export async function copyBudgets(
+  session: Session,
+  input: CopyBudgetsInput,
+): Promise<CopyBudgetsResult> {
+  if (session.role !== 'manager') throw httpError(403, 'Forbidden')
+  if (!session.departmentId) {
+    throw httpError(
+      400,
+      'Assign a department to your account before copying budgets',
+    )
+  }
+
+  await connectDB()
+
+  const [source, existing] = await Promise.all([
+    Budget.find({
+      organizationId: session.organizationId,
+      departmentId: session.departmentId,
+      month: input.fromMonth,
+    }).lean<IBudget[]>(),
+    Budget.find({
+      organizationId: session.organizationId,
+      departmentId: session.departmentId,
+      month: input.toMonth,
+    })
+      .select('category')
+      .lean<{ category: IBudget['category'] }[]>(),
+  ])
+
+  const taken = new Set(existing.map((budget) => budget.category))
+  let created = 0
+  let skipped = 0
+
+  for (const budget of source) {
+    if (taken.has(budget.category)) {
+      skipped++
+      continue
+    }
+
+    let doc: IBudget
+    try {
+      doc = await Budget.create({
+        organizationId: session.organizationId,
+        departmentId: session.departmentId,
+        category: budget.category,
+        amount: budget.amount,
+        month: input.toMonth,
+        // The rollover flag is per month; a copy starts opted out.
+        carryOver: false,
+      })
+    } catch (err) {
+      if (isDuplicateKey(err)) {
+        skipped++
+        continue
+      }
+      throw err
+    }
+
+    await recordAudit({
+      organizationId: session.organizationId,
+      userId: session.userId,
+      action: 'create',
+      entity: 'Budget',
+      entityId: String(doc._id),
+    })
+    taken.add(budget.category)
+    created++
+  }
+
+  return { month: input.toMonth, created, skipped }
 }
 
 export async function deleteBudget(

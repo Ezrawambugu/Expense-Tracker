@@ -15,6 +15,8 @@ export const ReportExportQuerySchema = z
     report: z.enum(['summary', 'budget'], {
       error: 'Choose summary or budget',
     }),
+    // CSV by default; XLSX added in Phase 7C.
+    format: z.enum(['csv', 'xlsx']).default('csv'),
     month: BudgetMonthSchema.optional(),
   })
   .strict()

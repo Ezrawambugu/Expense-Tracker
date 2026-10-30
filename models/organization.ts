@@ -9,6 +9,9 @@ const { Schema, model, models } = mongoose
 export interface IOrganization {
   _id: string
   name: string
+  // Ratio (0.8 = 80%) at which a budget turns into a warning (Phase 7C).
+  // Above 100% is always exceeded, so only the warning line is configurable.
+  warningThreshold: number
   createdAt: Date
 }
 
@@ -18,6 +21,12 @@ const OrganizationSchema = new Schema({
     required: [true, 'Organization name is required'],
     trim: true,
     maxlength: 100,
+  },
+  warningThreshold: {
+    type: Number,
+    default: 0.8,
+    min: 0.5,
+    max: 0.95,
   },
   createdAt: { type: Date, default: Date.now },
 })

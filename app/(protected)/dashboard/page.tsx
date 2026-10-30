@@ -77,8 +77,9 @@ export default async function DashboardPage() {
                 <BudgetStatusBadge status={row.status} />
                 <span className="font-medium">{row.category}</span>
                 <span className="tabular-nums">
-                  {formatPercent(row.percentUsed)} used (
-                  {formatAmount(row.spent)} of {formatAmount(row.budget)})
+                  {row.percentUsed === null
+                    ? `${formatAmount(row.spent)} spent with no budget`
+                    : `${formatPercent(row.percentUsed)} used (${formatAmount(row.spent)} of ${formatAmount(row.available ?? 0)})`}
                 </span>
               </li>
             ))}

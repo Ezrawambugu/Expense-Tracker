@@ -27,3 +27,9 @@ export function formatPercent(ratio: number): string {
 export function currentMonth(): string {
   return todayDateOnly().slice(0, 7)
 }
+
+// The calendar month before a `YYYY-MM` string (2026-01 -> 2025-12).
+export function previousMonth(month: string): string {
+  const [year, mon] = month.split('-').map(Number)
+  return new Date(Date.UTC(year, mon - 2, 1)).toISOString().slice(0, 7)
+}

@@ -7,6 +7,7 @@ import {
   spendingTrends,
   summaryReport,
 } from '@/services/report-service'
+import { getOrganizationSettings } from '@/services/organization-service'
 import { currentMonth, formatAmount } from '@/lib/format'
 import { BudgetVsActualTable } from '@/components/budget-vs-actual-table'
 import { CategoryChart, TrendChart } from '@/components/report-charts'
@@ -97,11 +98,13 @@ export default async function ReportsPage({
     ? (parsed.data.month ?? currentMonth())
     : currentMonth()
 
-  const [summary, rows, trends] = await Promise.all([
+  const [summary, rows, trends, settings] = await Promise.all([
     summaryReport(session, month),
     budgetVsActual(session, month),
     spendingTrends(session),
+    getOrganizationSettings(session),
   ])
+  const warningPercent = Math.round(settings.warningThreshold * 100)
 
   const hasTrend = trends.some((point) => point.total > 0)
   const hasCategoryData = summary.byCategory.some((row) => row.total > 0)
@@ -117,8 +120,12 @@ export default async function ReportsPage({
         </p>
       </div>
 
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <form method="get" action="/reports" className="flex items-end gap-2">
+      <div className="print-hide flex flex-wrap items-end justify-between gap-3">
+        <form
+          method="get"
+          action="/reports"
+          className="print-hide flex items-end gap-2"
+        >
           <div>
             <label htmlFor="report-month" className="block text-xs font-medium">
               Month
@@ -139,18 +146,30 @@ export default async function ReportsPage({
           </button>
         </form>
 
-        <div className="flex gap-4 text-sm">
+        <div className="flex flex-wrap gap-4 text-sm">
           <a
-            href={`/api/reports/export?report=summary&month=${month}`}
+            href={`/api/reports/export?report=summary&format=csv&month=${month}`}
             className="underline"
           >
             Summary CSV
           </a>
           <a
-            href={`/api/reports/export?report=budget&month=${month}`}
+            href={`/api/reports/export?report=summary&format=xlsx&month=${month}`}
+            className="underline"
+          >
+            Summary XLSX
+          </a>
+          <a
+            href={`/api/reports/export?report=budget&format=csv&month=${month}`}
             className="underline"
           >
             Budget vs actual CSV
+          </a>
+          <a
+            href={`/api/reports/export?report=budget&format=xlsx&month=${month}`}
+            className="underline"
+          >
+            Budget vs actual XLSX
           </a>
         </div>
       </div>
@@ -178,8 +197,9 @@ export default async function ReportsPage({
         <div>
           <h2 className="text-lg font-semibold">Budget vs actual</h2>
           <p className="text-sm text-neutral-500">
-            {month} · below 80% is on track, 80–100% is a warning, above 100% is
-            exceeded.
+            {month} · below {warningPercent}% is on track, {warningPercent}–
+            100% is a warning, above 100% is exceeded. Approved spending in a
+            category without a budget is listed as “No budget”.
           </p>
         </div>
         <BudgetVsActualTable
@@ -188,7 +208,7 @@ export default async function ReportsPage({
           emptyMessage={`No budgets for ${month} yet.`}
         />
         {rows.length === 0 && session.role === 'manager' && (
-          <p className="text-sm">
+          <p className="print-hide text-sm">
             <Link href="/budgets" className="underline">
               Set budgets for {month}
             </Link>

@@ -15,6 +15,7 @@ export type BudgetFormInitial = {
   category: string
   amount: string
   month: string
+  carryOver: boolean
 }
 
 const inputClass =
@@ -38,6 +39,7 @@ export function BudgetForm({
   const [month, setMonth] = useState(initial?.month ?? currentMonth())
   const [category, setCategory] = useState(initial?.category ?? 'Transport')
   const [amount, setAmount] = useState(initial?.amount ?? '')
+  const [carryOver, setCarryOver] = useState(initial?.carryOver ?? false)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -50,6 +52,7 @@ export function BudgetForm({
       category,
       amount: amount === '' ? amount : Number(amount),
       month,
+      carryOver,
     }
 
     // Client-side validation mirrors the server's shared schema.
@@ -176,6 +179,33 @@ export function BudgetForm({
             {fieldErrors.amount[0]}
           </p>
         )}
+      </div>
+
+      <div className="flex items-start gap-2 rounded-md border border-neutral-200 p-3 dark:border-neutral-800">
+        <input
+          id={`${idPrefix}-carryover`}
+          type="checkbox"
+          checked={carryOver}
+          onChange={(e) => setCarryOver(e.target.checked)}
+          className="mt-0.5"
+        />
+        <div>
+          <label
+            htmlFor={`${idPrefix}-carryover`}
+            className="text-sm font-medium"
+          >
+            Carry over unspent budget
+          </label>
+          <p className="text-xs text-neutral-500">
+            Adds the previous month’s unspent amount for this category to this
+            month’s available budget.
+          </p>
+          {fieldErrors.carryOver && (
+            <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+              {fieldErrors.carryOver[0]}
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-3">

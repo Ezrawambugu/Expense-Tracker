@@ -12,7 +12,10 @@
 //   approved Meals 400 (80% -> warning), rejected Meals 999 (ignored),
 //   approved Supplies 250 (125% -> exceeded)  => total approved 1400
 //   Dept A, months -5..-1: approved 10/20/30/40/50 (trend line)
-//   Dept B: approved Transport 100, budget 300 (33.3% -> ok)
+//   Dept B: approved Transport 100, budget 300 (33.3% -> ok); previous month
+//   has budgets Transport 400 / Meals 100 and approved Transport 999, so the
+//   carryOver flags clamp to 0 and carry in 100 respectively (Phase 7C)
+//   Dept A previous month: approved Transport 50 with no budget -> unbudgeted
 //   Other org: approved 999 (must never leak into our numbers)
 //
 // The report service, CSV export route, /reports page and dashboards are all
@@ -77,6 +80,16 @@ async function api(
     /* non-JSON body (e.g. a CSV export or the 403 page from middleware) */
   }
   return { status: res.status, json, text, headers: res.headers }
+}
+
+// Binary variant for the Phase 7C XLSX downloads.
+async function apiBinary(cookie: string | null, path: string) {
+  const res = await fetch(BASE + path, {
+    headers: cookie ? { cookie } : {},
+    redirect: 'manual',
+  })
+  const buffer = Buffer.from(await res.arrayBuffer())
+  return { status: res.status, headers: res.headers, buffer }
 }
 
 async function login(email: string, password: string): Promise<string> {
@@ -328,6 +341,7 @@ async function main() {
     category: string,
     amount: number,
     m = M0,
+    carryOver = false,
   ) =>
     Budget.create({
       organizationId: orgV._id,
@@ -335,11 +349,16 @@ async function main() {
       category,
       amount,
       month: m,
+      carryOver,
     })
   await mkBudget(deptA, 'Transport', 1000)
   await mkBudget(deptA, 'Meals', 500)
   await mkBudget(deptA, 'Supplies', 200)
-  await mkBudget(deptB, 'Transport', 300)
+  await mkBudget(deptB, 'Transport', 300, M0, true)
+  // Previous month for the rollover fixtures (Phase 7C).
+  await mkBudget(deptB, 'Transport', 400, M_PREV)
+  await mkBudget(deptB, 'Meals', 100, M_PREV)
+  await mkBudget(deptB, 'Meals', 100, M0, true)
 
   // Sessions derived exactly like the app derives them (from the verified
   // session, never from client input).
@@ -480,8 +499,8 @@ async function main() {
 
   const rowsAdmin = await budgetVsActual(sAdmin, M0)
   check(
-    'budget vs actual: admin sees both departments (4 rows)',
-    rowsAdmin.length === 4 &&
+    'budget vs actual: admin sees both departments (5 rows)',
+    rowsAdmin.length === 5 &&
       rowsAdmin.some(
         (r) =>
           r.departmentName === deptBName &&
@@ -495,12 +514,69 @@ async function main() {
 
   const rowsB = await budgetVsActual(sMgrB, M0)
   check(
-    'budget vs actual: manager B sees only their department',
-    rowsB.length === 1 &&
-      rowsB[0].departmentName === deptBName &&
-      rowsB[0].spent === 100 &&
-      rowsB[0].status === 'ok',
+    'budget vs actual: manager B sees only their two department budgets',
+    rowsB.length === 2 && rowsB.every((r) => r.departmentName === deptBName),
     rowsB,
+  )
+  check(
+    'carry-over: an overspent previous month carries nothing (clamped at 0)',
+    rowsB[0].category === 'Transport' &&
+      rowsB[0].budget === 300 &&
+      rowsB[0].carriedOver === 0 &&
+      rowsB[0].available === 300 &&
+      rowsB[0].remaining === 200 &&
+      rowsB[0].status === 'ok',
+    rowsB[0],
+  )
+  check(
+    'carry-over: 100 unspent from last month raises the available budget to 200',
+    rowsB[1].category === 'Meals' &&
+      rowsB[1].budget === 100 &&
+      rowsB[1].carriedOver === 100 &&
+      rowsB[1].available === 200 &&
+      rowsB[1].spent === 0 &&
+      rowsB[1].remaining === 200 &&
+      rowsB[1].percentUsed === 0 &&
+      rowsB[1].status === 'ok',
+    rowsB[1],
+  )
+
+  // Phase 7C: approved spending with no budget shows as unbudgeted. Dept A's
+  // previous month has 50 approved and no budgets at all.
+  const rowsPrevA = await budgetVsActual(sMgrA, M_PREV)
+  check(
+    'unbudgeted: the previous month returns one unbudgeted row (50 spent)',
+    rowsPrevA.length === 1 &&
+      rowsPrevA[0].category === 'Transport' &&
+      rowsPrevA[0].budget === null &&
+      rowsPrevA[0].available === null &&
+      rowsPrevA[0].remaining === null &&
+      rowsPrevA[0].percentUsed === null &&
+      rowsPrevA[0].spent === 50 &&
+      rowsPrevA[0].status === 'unbudgeted',
+    rowsPrevA,
+  )
+  const alertsPrevA = await budgetAlerts(sMgrA, M_PREV)
+  check(
+    'alerts include the unbudgeted row',
+    alertsPrevA.length === 1 && alertsPrevA[0].status === 'unbudgeted',
+    alertsPrevA.map((r) => `${r.category}:${r.status}`),
+  )
+
+  const rowsPrevAdmin = await budgetVsActual(sAdmin, M_PREV)
+  check(
+    'unbudgeted + budgeted rows coexist for the admin (3 rows)',
+    rowsPrevAdmin.length === 3 &&
+      rowsPrevAdmin.some((r) => r.status === 'unbudgeted') &&
+      rowsPrevAdmin.some(
+        (r) =>
+          r.category === 'Transport' &&
+          r.departmentName === deptBName &&
+          r.budget === 400 &&
+          r.spent === 999 &&
+          r.status === 'exceeded',
+      ),
+    rowsPrevAdmin,
   )
 
   const alertsA = await budgetAlerts(sMgrA, M0)
@@ -571,16 +647,24 @@ async function main() {
     `/api/reports/export?report=budget&month=${M0}`,
   )
   check(
+    'CSV budget: header carries the carry-over and available columns (Phase 7C)',
+    csvBudget.status === 200 &&
+      csvBudget.text.startsWith(
+        'Department,Category,Budget,Carried over,Available,Spent,Remaining,Percent used,Status,Awaiting approval',
+      ),
+    csvBudget.text.split('\r\n')[0],
+  )
+  check(
     'CSV budget: every row matches exactly (ok/warning/exceeded)',
     csvBudget.status === 200 &&
       csvBudget.text.includes(
-        `${deptAName},Transport,1000,750,250,75,ok,100\r\n`,
+        `${deptAName},Transport,1000,0,1000,750,250,75,ok,100\r\n`,
       ) &&
       csvBudget.text.includes(
-        `${deptAName},Meals,500,400,100,80,warning,0\r\n`,
+        `${deptAName},Meals,500,0,500,400,100,80,warning,0\r\n`,
       ) &&
       csvBudget.text.includes(
-        `${deptAName},Supplies,200,250,-50,125,exceeded,0\r\n`,
+        `${deptAName},Supplies,200,0,200,250,-50,125,exceeded,0\r\n`,
       ),
     csvBudget.text,
   )
@@ -591,12 +675,27 @@ async function main() {
     `/api/reports/export?report=budget&month=${M0}`,
   )
   check(
-    'CSV budget: admin export includes the other department',
+    'CSV budget: admin export includes the other department and the carried amount',
     csvAdmin.status === 200 &&
       csvAdmin.text.includes(
-        `${deptBName},Transport,300,100,200,33.3,ok,0\r\n`,
-      ),
+        `${deptBName},Transport,300,0,300,100,200,33.3,ok,0\r\n`,
+      ) &&
+      csvAdmin.text.includes(`${deptBName},Meals,100,100,200,0,200,0,ok,0\r\n`),
     csvAdmin.text,
+  )
+
+  const csvUnbudgeted = await api(
+    adminCookie,
+    'GET',
+    `/api/reports/export?report=budget&month=${M_PREV}`,
+  )
+  check(
+    'CSV budget: an unbudgeted row leaves the budget figures empty',
+    csvUnbudgeted.status === 200 &&
+      csvUnbudgeted.text.includes(
+        `${deptAName},Transport,,0,,50,,,unbudgeted,0\r\n`,
+      ),
+    csvUnbudgeted.text,
   )
 
   const csvDefaultMonth = await api(
@@ -638,6 +737,158 @@ async function main() {
     '/api/reports/export?report=summary&month=1342-99',
   )
   check('CSV export rejects an invalid month (400)', csvBadMonth.status === 400)
+
+  const csvBadFormat = await api(
+    mgrCookie,
+    'GET',
+    '/api/reports/export?report=summary&format=pdf',
+  )
+  check('export rejects an unknown format (400)', csvBadFormat.status === 400)
+
+  // ---------- XLSX export (Phase 7C) ----------
+  const xlsxSummary = await apiBinary(
+    mgrCookie,
+    `/api/reports/export?report=summary&format=xlsx&month=${M0}`,
+  )
+  check(
+    'XLSX summary: 200, spreadsheet content type, .xlsx filename',
+    xlsxSummary.status === 200 &&
+      (xlsxSummary.headers.get('content-type') ?? '') ===
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' &&
+      (xlsxSummary.headers.get('content-disposition') ?? '').includes(
+        `expense-summary-${M0}.xlsx`,
+      ),
+    [xlsxSummary.status, xlsxSummary.headers.get('content-disposition')],
+  )
+  check(
+    'XLSX summary: a real zip container, not HTML',
+    xlsxSummary.buffer.subarray(0, 2).toString() === 'PK' &&
+      xlsxSummary.buffer.length > 1000,
+    xlsxSummary.buffer.length,
+  )
+
+  const xlsxBudget = await apiBinary(
+    adminCookie,
+    `/api/reports/export?report=budget&format=xlsx&month=${M_PREV}`,
+  )
+  check(
+    'XLSX budget: 200 with the month in the filename',
+    xlsxBudget.status === 200 &&
+      (xlsxBudget.headers.get('content-disposition') ?? '').includes(
+        `expense-budget-${M_PREV}.xlsx`,
+      ),
+    xlsxBudget.status,
+  )
+
+  const ExcelJS = (await import('exceljs')).default
+  const workbook = new ExcelJS.Workbook()
+  await workbook.xlsx.load(xlsxBudget.buffer)
+  const sheet = workbook.worksheets[0]
+  const sheetValues = (sheet.getSheetValues() as unknown[][])
+    .flat()
+    .map((value) => (value == null ? '' : String(value)))
+    .join('|')
+  check(
+    'XLSX budget: the sheet carries the unbudgeted row and its 50 spend',
+    sheet.name.includes(M_PREV) &&
+      sheetValues.includes(deptAName) &&
+      sheetValues.includes('unbudgeted') &&
+      sheetValues.includes('50'),
+    { sheet: sheet.name, sample: sheetValues.slice(0, 200) },
+  )
+
+  // ---------- Organization settings (Phase 7C) ----------
+  const settingsGet = await api(adminCookie, 'GET', '/api/admin/settings')
+  const settingsValue = (
+    settingsGet.json?.settings as { warningThreshold?: number } | undefined
+  )?.warningThreshold
+  check(
+    'settings: the warning threshold defaults to 0.8',
+    settingsGet.status === 200 && settingsValue === 0.8,
+    settingsGet.json,
+  )
+
+  const settingsMgr = await api(mgrCookie, 'GET', '/api/admin/settings')
+  const settingsStaff = await api(staffCookie, 'GET', '/api/admin/settings')
+  check(
+    'settings API is admin-only (403 for manager and staff)',
+    settingsMgr.status === 403 && settingsStaff.status === 403,
+    [settingsMgr.status, settingsStaff.status],
+  )
+
+  const tighten = await api(adminCookie, 'PATCH', '/api/admin/settings', {
+    warningThreshold: 0.5,
+  })
+  check(
+    'the admin lowers the warning threshold to 0.5',
+    tighten.status === 200 &&
+      (tighten.json?.settings as { warningThreshold?: number } | undefined)
+        ?.warningThreshold === 0.5,
+    tighten.json,
+  )
+
+  const rowsTight = await budgetVsActual(sMgrA, M0)
+  const tightByCategory = new Map(rowsTight.map((row) => [row.category, row]))
+  check(
+    'the 50% threshold turns the 75% row into a warning (80% was already one)',
+    tightByCategory.get('Transport')?.status === 'warning' &&
+      tightByCategory.get('Meals')?.status === 'warning' &&
+      tightByCategory.get('Supplies')?.status === 'exceeded',
+    rowsTight.map((r) => `${r.category}:${r.status}`),
+  )
+
+  const tooLow = await api(adminCookie, 'PATCH', '/api/admin/settings', {
+    warningThreshold: 0.4,
+  })
+  const tooHigh = await api(adminCookie, 'PATCH', '/api/admin/settings', {
+    warningThreshold: 0.96,
+  })
+  const settingsInjection = await api(
+    adminCookie,
+    'PATCH',
+    '/api/admin/settings',
+    { warningThreshold: 0.8, currency: 'KES' },
+  )
+  check(
+    'settings reject thresholds outside 0.5–0.95 and extra fields (400)',
+    tooLow.status === 400 &&
+      tooHigh.status === 400 &&
+      settingsInjection.status === 400,
+    [tooLow.status, tooHigh.status, settingsInjection.status],
+  )
+
+  const settingsAudit = await AuditLog.exists({
+    organizationId: orgV._id,
+    entity: 'Organization',
+    action: 'update',
+  })
+  check('changing a setting writes an audit entry (rule 7)', !!settingsAudit)
+
+  const settingsPage = await api(adminCookie, 'GET', '/admin/settings')
+  check(
+    'the admin settings page renders the threshold form',
+    settingsPage.status === 200 &&
+      settingsPage.text.includes('Warning threshold') &&
+      settingsPage.text.includes('Save settings'),
+    settingsPage.status,
+  )
+  const settingsPageMgr = await api(mgrCookie, 'GET', '/admin/settings')
+  check(
+    'the settings page is forbidden for managers (403)',
+    settingsPageMgr.status === 403,
+    settingsPageMgr.status,
+  )
+
+  const reset = await api(adminCookie, 'PATCH', '/api/admin/settings', {
+    warningThreshold: 0.8,
+  })
+  check(
+    'resetting the threshold to 0.8 restores the default classification',
+    reset.status === 200 &&
+      (await budgetAlerts(sMgrA, M0)).map((r) => r.status).join(',') ===
+        'exceeded,warning',
+    reset.json,
+  )
 
   // ---------- HTTP checks: pages ----------
   const repMgr = await api(mgrCookie, 'GET', '/reports')
@@ -794,6 +1045,11 @@ async function uiChecks(opts: {
         tableText.includes('-50.00'),
       tableText,
     )
+    check(
+      'UI table exposes the carry-over and available columns (Phase 7C)',
+      /carried over/i.test(tableText) && /available/i.test(tableText),
+      tableText,
+    )
 
     // Charts mount after layout; wait for the recharts SVG surface, then
     // count the series elements (class names live on the path/rect, not the
@@ -846,10 +1102,34 @@ async function uiChecks(opts: {
     )
     const prevBody = await manager.locator('body').innerText()
     check(
-      'UI month switch shows the previous month (50.00 approved, no budgets)',
+      'UI month switch shows the previous month (50.00 approved, unbudgeted)',
       prevBody.includes('50.00') &&
-        prevBody.includes(`No budgets for ${opts.previousMonth} yet.`),
+        prevBody.includes('No budget') &&
+        prevBody.includes(`Total approved — ${opts.previousMonth}`),
       prevBody.slice(0, 400),
+    )
+
+    // Phase 7C print stylesheet: Print > Save as PDF hides the chrome but keeps
+    // the charts.
+    await manager.emulateMedia({ media: 'print' })
+    // No named helpers inside evaluate: the tsx transform injects a `__name`
+    // helper that does not exist in the browser context.
+    const printState = await manager.evaluate(() => {
+      const header = document.querySelector('header')
+      const filter = document.querySelector('form[action="/reports"]')
+      return {
+        header: header ? getComputedStyle(header).display : null,
+        filter: filter ? getComputedStyle(filter).display : null,
+        charts: document.querySelectorAll('.recharts-surface').length,
+      }
+    })
+    await manager.emulateMedia({ media: 'screen' })
+    check(
+      'UI print stylesheet hides the navigation and filters, keeps the charts',
+      printState.header === 'none' &&
+        printState.filter === 'none' &&
+        printState.charts > 0,
+      printState,
     )
 
     // Manager dashboard: alerts banner.
@@ -892,10 +1172,12 @@ async function uiChecks(opts: {
     await admin.locator('table').first().waitFor({ timeout: 20_000 })
     const adminTable = await admin.locator('table').first().innerText()
     check(
-      'UI admin budget table includes both departments',
+      'UI admin budget table includes both departments and the carried amount',
       adminTable.includes(opts.deptBName) &&
         adminTable.includes('300.00') &&
-        adminTable.includes('100.00'),
+        adminTable.includes('100.00') &&
+        adminTable.includes('200.00') &&
+        /carried over/i.test(adminTable),
       adminTable,
     )
 

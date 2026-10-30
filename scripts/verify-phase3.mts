@@ -51,6 +51,7 @@ type BudgetJson = {
   category: string
   amount: number
   month: string
+  carryOver: boolean
   createdAt: string
 }
 
@@ -80,6 +81,8 @@ type ApiBody = {
   budgets?: BudgetJson[]
   total?: number
   success?: boolean
+  created?: number
+  skipped?: number
 }
 
 async function api(
@@ -533,6 +536,116 @@ async function main() {
   const gone = await api(manager, 'GET', `/api/budgets/${b2.json!.budget!.id}`)
   check('deleted budget is a 404', gone.status === 404, gone.json)
 
+  // ---------- Phase 7C: copy budgets between months ----------
+  const copyFrom = month(4)
+  const copyTo = month(5)
+  const copyBudget = (cookie: string, body: Record<string, unknown>) =>
+    api(cookie, 'POST', '/api/budgets/copy', body)
+
+  await mkBudget(manager, {
+    category: 'Transport',
+    amount: 400,
+    month: copyFrom,
+  })
+  await mkBudget(manager, { category: 'Meals', amount: 250, month: copyFrom })
+  // Target already has Transport: the copy must skip it, not overwrite it.
+  await mkBudget(manager, { category: 'Transport', amount: 999, month: copyTo })
+
+  const copied = await copyBudget(manager, {
+    fromMonth: copyFrom,
+    toMonth: copyTo,
+  })
+  check(
+    'copy budgets creates the missing categories and skips existing ones',
+    copied.status === 200 &&
+      copied.json?.created === 1 &&
+      copied.json?.skipped === 1,
+    copied.json,
+  )
+
+  const copiedMeals = await api(
+    manager,
+    'GET',
+    `/api/budgets?month=${copyTo}&category=Meals`,
+  )
+  check(
+    'the copied budget keeps the source amount (250)',
+    copiedMeals.json?.total === 1 &&
+      copiedMeals.json?.items?.[0]?.amount === 250,
+    copiedMeals.json,
+  )
+
+  const copyOverwrote = await api(
+    manager,
+    'GET',
+    `/api/budgets?month=${copyTo}&category=Transport`,
+  )
+  check(
+    'the existing target budget was not overwritten (999)',
+    copyOverwrote.json?.items?.[0]?.amount === 999,
+    copyOverwrote.json,
+  )
+
+  const copyAgain = await copyBudget(manager, {
+    fromMonth: copyFrom,
+    toMonth: copyTo,
+  })
+  check(
+    'copying again creates nothing and skips both categories',
+    copyAgain.json?.created === 0 && copyAgain.json?.skipped === 2,
+    copyAgain.json,
+  )
+
+  for (const [name, body] of Object.entries({
+    'an invalid month': { fromMonth: '2026-13', toMonth: copyTo },
+    'a client-supplied departmentId': {
+      fromMonth: copyFrom,
+      toMonth: copyTo,
+      departmentId: 'x',
+    },
+  })) {
+    const bad = await copyBudget(manager, body)
+    check(`copy budgets rejects ${name} (400)`, bad.status === 400, bad.json)
+  }
+
+  const copyStaff = await copyBudget(staff1, {
+    fromMonth: copyFrom,
+    toMonth: copyTo,
+  })
+  const copyAdmin = await copyBudget(admin, {
+    fromMonth: copyFrom,
+    toMonth: copyTo,
+  })
+  check(
+    'copy budgets is manager-only (staff and admin 403)',
+    copyStaff.status === 403 && copyAdmin.status === 403,
+    [copyStaff.status, copyAdmin.status],
+  )
+
+  // Phase 7C: the rollover flag round-trips through the API.
+  const carryBudget = await mkBudget(manager, {
+    category: 'Events',
+    amount: 300,
+    month: copyTo,
+    carryOver: true,
+  })
+  check(
+    'a budget can opt into carry-over (201, carryOver true)',
+    carryBudget.status === 201 && carryBudget.json?.budget?.carryOver === true,
+    carryBudget.json,
+  )
+  const carryOff = await api(
+    manager,
+    'PATCH',
+    `/api/budgets/${carryBudget.json!.budget!.id}`,
+    { carryOver: false },
+  )
+  check(
+    'the rollover flag can be switched off again (200)',
+    carryOff.status === 200 && carryOff.json?.budget?.carryOver === false,
+    carryOff.json,
+  )
+
   const budgetAudits = await AuditLog.find({
     organizationId: orgV._id,
     entity: 'Budget',
@@ -546,6 +659,13 @@ async function main() {
       ),
     ),
     budgetAudits.map((a) => `${a.action}:${String(a.userId)}`),
+  )
+  check(
+    'each copied budget writes its own create audit (2 copies = >= 2 audits)',
+    budgetAudits.filter(
+      (a) => a.action === 'create' && String(a.userId) === String(mgrA._id),
+    ).length >= 2,
+    budgetAudits.filter((a) => a.action === 'create').length,
   )
 
   // ---------- Approvals ----------
@@ -911,6 +1031,8 @@ async function main() {
     staffEmail: `staff-a1-${runId}@verify.test`,
     adminEmail: `admin-${runId}@verify.test`,
     uiMonth: month(3),
+    copyFrom: copyFrom,
+    copyTo: month(9),
     approvedDescription: 'E waiting approval',
     staffCookie: staff1,
   })
@@ -952,6 +1074,8 @@ async function uiChecks(opts: {
   staffEmail: string
   adminEmail: string
   uiMonth: string
+  copyFrom: string
+  copyTo: string
   approvedDescription: string
   staffCookie: string
 }) {
@@ -1065,6 +1189,30 @@ async function uiChecks(opts: {
       rowGone = false
     }
     check('UI delete removes the budget row', rowGone)
+
+    // Phase 7C: copy a month's budgets through the UI.
+    await waitHydrated(manager, 'input[id=copy-from-month]')
+    await manager.fill('input[id=copy-from-month]', opts.copyFrom)
+    await manager.fill('input[id=copy-to-month]', opts.copyTo)
+    await manager.getByRole('button', { name: /copy budgets/i }).click()
+    let copyToast = true
+    try {
+      await manager.waitForFunction(
+        () => document.body.innerText.includes('Copied'),
+        undefined,
+        { timeout: 15_000 },
+      )
+    } catch {
+      copyToast = false
+    }
+    check(
+      'UI copy budgets reports how many were created',
+      copyToast &&
+        (await manager.locator('body').innerText()).includes(
+          `Copied 2 budgets to ${opts.copyTo}`,
+        ),
+      await manager.locator('body').innerText(),
+    )
 
     // Manager: approve a pending expense from the approvals queue.
     await manager.goto(`${BASE}/approvals`, { waitUntil: 'domcontentloaded' })

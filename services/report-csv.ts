@@ -22,26 +22,34 @@ export function summaryToCsv(report: SummaryReport): string {
   return toCsv(rows)
 }
 
+export const BUDGET_CSV_HEADER = [
+  'Department',
+  'Category',
+  'Budget',
+  'Carried over',
+  'Available',
+  'Spent',
+  'Remaining',
+  'Percent used',
+  'Status',
+  'Awaiting approval',
+]
+
+// Unbudgeted rows have no budget, available amount, remaining or percentage, so
+// those cells stay empty instead of showing a misleading zero.
 export function budgetToCsv(rows: BudgetVsActualRow[]): string {
   return toCsv([
-    [
-      'Department',
-      'Category',
-      'Budget',
-      'Spent',
-      'Remaining',
-      'Percent used',
-      'Status',
-      'Awaiting approval',
-    ],
+    BUDGET_CSV_HEADER,
     ...rows.map((row) => [
       row.departmentName,
       row.category,
-      row.budget,
+      row.budget ?? '',
+      row.carriedOver,
+      row.available ?? '',
       row.spent,
-      row.remaining,
+      row.remaining ?? '',
       // Percent with one decimal (87.5 = 87.5% used).
-      Math.round(row.percentUsed * 1000) / 10,
+      row.percentUsed === null ? '' : Math.round(row.percentUsed * 1000) / 10,
       row.status,
       row.awaitingApproval,
     ]),
