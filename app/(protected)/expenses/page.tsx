@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getSession } from '@/lib/session'
 import { listExpenses, type ExpenseView } from '@/services/expense-service'
+import { getOrganizationSettings } from '@/services/organization-service'
 import { ExpenseListQuerySchema } from '@/schemas/expense'
 import { formatAmount, formatDateOnly } from '@/lib/format'
 import { CATEGORIES, EXPENSE_STATUSES } from '@/lib/constants'
@@ -67,7 +68,10 @@ export default async function ExpensesPage({
     return qs ? `/expenses?${qs}` : '/expenses'
   }
 
-  const result = await listExpenses(session, query)
+  const [result, settings] = await Promise.all([
+    listExpenses(session, query),
+    getOrganizationSettings(session),
+  ])
 
   const scopeNote: Record<typeof session.role, string> = {
     staff: 'Your expenses',
@@ -280,7 +284,7 @@ export default async function ExpensesPage({
                       {expense.description || '—'}
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
-                      {formatAmount(expense.amount)}
+                      {formatAmount(expense.amount, settings.currency)}
                     </td>
                     <td className="px-4 py-3">
                       <span

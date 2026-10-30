@@ -19,9 +19,11 @@ The system closes the classic plan / do / observe / act loop:
 | --- | --- | --- |
 | **staff** | Create, edit and delete their own expenses while pending; filter, sort and page through them; see their department's budget status (read-only); track approval status and reasons | Set budgets, approve expenses, view reports, manage users |
 | **manager** | Everything staff can do in their department; create, edit and delete department budgets; approve or reject pending expenses with an optional reason; view reports, charts and alerts; export CSV | Create or deactivate users, manage departments, see other departments |
-| **admin** | Manage users (create, assign role/department, deactivate/reactivate) and departments (create, rename, delete); view every department's expenses, budgets and reports read-only | Approve or reject expenses (managers do that), change their own role or status |
+| **admin** | Manage users (create, assign role/department, deactivate/reactivate) and departments (create, rename, archive/unarchive, delete when unused); read the organization's audit log; set the warning threshold and currency; view every department's expenses, budgets and reports read-only | Approve or reject expenses (managers do that), change their own role or status |
 
 Registration creates a new organization and its first admin, so every organization's data is isolated (multi-tenant: every query is filtered by the session's `organizationId`).
+
+An email address belongs to **one organization**: addresses are unique across the whole database, so an address that already has an account cannot register a second organization.
 
 ## Getting started
 
@@ -188,7 +190,7 @@ Report data itself is server-rendered on `/reports`; charts are Recharts compone
 - No file attachments or receipt uploads; expenses are amounts plus a text description.
 - The login rate limiter is in memory, so it resets on restart and is per-process (not shared across instances).
 - Report exports cover the summary and budget vs actual tables only; charts are not exported.
-- Email addresses are unique across the whole database rather than per organization.
+- An email address belongs to one organization only: uniqueness is global across the database, not per organization.
 
 ## Future work
 
@@ -197,8 +199,7 @@ Report data itself is server-rendered on `/reports`; charts are Recharts compone
 - Export formats beyond CSV (for example XLSX or PDF) and a chart export.
 - Notification when a category crosses the warning threshold.
 - Sharing the rate limiter through a store such as Redis for multi-instance deployments.
-- Per-organization branding and settings.
-- A richer audit trail UI (currently the data is captured, but there is no log viewer page).
+- Per-organization branding.
 
 ## License
 

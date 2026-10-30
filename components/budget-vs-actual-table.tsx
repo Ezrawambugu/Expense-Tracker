@@ -42,17 +42,19 @@ export function BudgetStatusBadge({
 // budget figures (Phase 7C).
 export function BudgetVsActualTable({
   rows,
+  currency,
   showDepartment = false,
   emptyMessage = 'No budgets for this month yet.',
 }: {
   rows: BudgetVsActualRow[]
+  currency: string
   showDepartment?: boolean
   emptyMessage?: string
 }) {
   const colSpan = (showDepartment ? 1 : 0) + 9
 
   const money = (value: number | null) =>
-    value === null ? '—' : formatAmount(value)
+    value === null ? '—' : formatAmount(value, currency)
 
   return (
     <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
@@ -119,13 +121,15 @@ export function BudgetVsActualTable({
                   {money(row.budget)}
                 </td>
                 <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
-                  {row.carriedOver ? formatAmount(row.carriedOver) : '—'}
+                  {row.carriedOver
+                    ? formatAmount(row.carriedOver, currency)
+                    : '—'}
                 </td>
                 <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
                   {money(row.available)}
                 </td>
                 <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
-                  {formatAmount(row.spent)}
+                  {formatAmount(row.spent, currency)}
                 </td>
                 <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
                   {money(row.remaining)}
@@ -139,7 +143,7 @@ export function BudgetVsActualTable({
                   <BudgetStatusBadge status={row.status} />
                 </td>
                 <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
-                  {formatAmount(row.awaitingApproval)}
+                  {formatAmount(row.awaitingApproval, currency)}
                 </td>
               </tr>
             ))

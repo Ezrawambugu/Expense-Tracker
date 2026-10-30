@@ -30,7 +30,13 @@ const tooltipStyle = {
 const chartWrapperClass = 'h-64 w-full text-neutral-700 dark:text-neutral-200'
 
 // Monthly approved spending for the last 6 months (Phase 4 output d).
-export function TrendChart({ points }: { points: TrendPoint[] }) {
+export function TrendChart({
+  points,
+  currency,
+}: {
+  points: TrendPoint[]
+  currency: string
+}) {
   return (
     <div className={chartWrapperClass}>
       <ResponsiveContainer width="100%" height="100%">
@@ -52,10 +58,13 @@ export function TrendChart({ points }: { points: TrendPoint[] }) {
             {...axisProps}
             axisLine={false}
             width={56}
-            tickFormatter={(value: number) => formatAmount(value)}
+            tickFormatter={(value: number) => formatAmount(value, currency)}
           />
           <Tooltip
-            formatter={(value) => [formatAmount(Number(value)), 'Approved']}
+            formatter={(value) => [
+              formatAmount(Number(value), currency),
+              'Approved',
+            ]}
             contentStyle={tooltipStyle}
           />
           <Line
@@ -72,7 +81,13 @@ export function TrendChart({ points }: { points: TrendPoint[] }) {
 }
 
 // Approved spending by category for the chosen month (Phase 4 output d).
-export function CategoryChart({ data }: { data: CategoryTotal[] }) {
+export function CategoryChart({
+  data,
+  currency,
+}: {
+  data: CategoryTotal[]
+  currency: string
+}) {
   return (
     <div className={chartWrapperClass}>
       <ResponsiveContainer width="100%" height="100%">
@@ -90,10 +105,13 @@ export function CategoryChart({ data }: { data: CategoryTotal[] }) {
             {...axisProps}
             axisLine={false}
             width={56}
-            tickFormatter={(value: number) => formatAmount(value)}
+            tickFormatter={(value: number) => formatAmount(value, currency)}
           />
           <Tooltip
-            formatter={(value) => [formatAmount(Number(value)), 'Approved']}
+            formatter={(value) => [
+              formatAmount(Number(value), currency),
+              'Approved',
+            ]}
             contentStyle={tooltipStyle}
           />
           <Bar dataKey="total" fill="currentColor" radius={[3, 3, 0, 0]} />

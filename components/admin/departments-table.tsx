@@ -13,8 +13,19 @@ const inputClass =
 const buttonClass =
   'rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200'
 
+const secondaryButtonClass =
+  'rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-700 dark:hover:bg-neutral-900'
+
 const dangerButtonClass =
   'rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40'
+
+function referenceSummary(department: AdminDepartmentView): string {
+  return [
+    `${department.userCount} user${department.userCount === 1 ? '' : 's'}`,
+    `${department.budgetCount} budget${department.budgetCount === 1 ? '' : 's'}`,
+    `${department.expenseCount} expense${department.expenseCount === 1 ? '' : 's'}`,
+  ].join(' · ')
+}
 
 function DepartmentRow({ department }: { department: AdminDepartmentView }) {
   const router = useRouter()
@@ -58,11 +69,46 @@ function DepartmentRow({ department }: { department: AdminDepartmentView }) {
     }
   }
 
+  async function setArchived(archived: boolean) {
+    const message = archived
+      ? `Archive ${department.name}? Its name stays in historical reports, but it cannot receive new users, budgets or expenses until unarchived.`
+      : `Unarchive ${department.name}? It will accept new users, budgets and expenses again.`
+    if (!window.confirm(message)) return
+
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await fetch(
+        `/api/admin/departments/${department.id}/${archived ? 'archive' : 'unarchive'}`,
+        { method: 'POST' },
+      )
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setError(
+          data.error ??
+            `Unable to ${archived ? 'archive' : 'unarchive'} the department`,
+        )
+        return
+      }
+      toast(archived ? 'Department archived' : 'Department unarchived')
+      router.refresh()
+    } catch {
+      setError(
+        `Unable to ${archived ? 'archive' : 'unarchive'} the department. Please try again.`,
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function remove() {
+    const references = referenceSummary(department)
     const message =
-      department.userCount > 0
-        ? `Delete ${department.name}? ${department.userCount} user(s) are still assigned to it, so this will be refused until you reassign them.`
-        : `Delete ${department.name}? This cannot be undone.`
+      department.userCount > 0 ||
+      department.budgetCount > 0 ||
+      department.expenseCount > 0
+        ? `Delete ${department.name} permanently? It still has ${references}, so this will be refused until those records are removed or moved.`
+        : `Delete ${department.name} permanently? This cannot be undone.`
     if (!window.confirm(message)) return
 
     setBusy(true)
@@ -136,9 +182,16 @@ function DepartmentRow({ department }: { department: AdminDepartmentView }) {
 
   return (
     <tr className="border-t border-neutral-200 dark:border-neutral-800">
-      <td className="px-3 py-2 text-sm font-medium">{department.name}</td>
+      <td className="px-3 py-2 text-sm font-medium">
+        {department.name}
+        {department.isArchived && (
+          <span className="ml-2 rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+            Archived
+          </span>
+        )}
+      </td>
       <td className="px-3 py-2 text-sm text-neutral-600 dark:text-neutral-300">
-        {department.userCount} {department.userCount === 1 ? 'user' : 'users'}
+        {referenceSummary(department)}
       </td>
       <td className="px-3 py-2 text-sm">
         <div className="flex flex-wrap items-center gap-2">
@@ -150,6 +203,25 @@ function DepartmentRow({ department }: { department: AdminDepartmentView }) {
           >
             Rename
           </button>
+          {department.isArchived ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setArchived(false)}
+              className={secondaryButtonClass}
+            >
+              Unarchive
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setArchived(true)}
+              className={secondaryButtonClass}
+            >
+              Archive
+            </button>
+          )}
           <button
             type="button"
             disabled={busy}
@@ -187,14 +259,14 @@ export function DepartmentsTable({
 
   return (
     <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
-      <table className="w-full min-w-[480px] text-left">
+      <table className="w-full min-w-[560px] text-left">
         <thead className="bg-neutral-50 text-xs font-medium text-neutral-500 dark:bg-neutral-900 dark:text-neutral-400">
           <tr>
             <th scope="col" className="px-3 py-2">
               Department
             </th>
             <th scope="col" className="px-3 py-2">
-              Members
+              In use by
             </th>
             <th scope="col" className="px-3 py-2">
               <span className="sr-only">Actions</span>

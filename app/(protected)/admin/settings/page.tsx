@@ -6,8 +6,9 @@ import { SettingsForm } from '@/components/admin/settings-form'
 // Reads the session cookie on every request — blocking route (cacheComponents).
 export const instant = false
 
-// /admin/settings — organization-wide configuration (currently the budget
-// warning threshold). Middleware 403s non-admins; this is defense-in-depth.
+// /admin/settings — organization-wide configuration: the budget warning
+// threshold and the display currency. Middleware 403s non-admins; this is
+// defense-in-depth.
 export default async function AdminSettingsPage() {
   const session = await getSession()
   if (!session) redirect('/login')
@@ -25,8 +26,11 @@ export default async function AdminSettingsPage() {
       </div>
 
       <section className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
-        <h2 className="mb-3 text-sm font-semibold">Budget alerts</h2>
-        <SettingsForm initialThreshold={settings.warningThreshold} />
+        <h2 className="mb-3 text-sm font-semibold">Budget alerts and money</h2>
+        <SettingsForm
+          initialThreshold={settings.warningThreshold}
+          initialCurrency={settings.currency}
+        />
       </section>
     </div>
   )

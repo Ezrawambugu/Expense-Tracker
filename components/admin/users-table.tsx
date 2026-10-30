@@ -183,8 +183,9 @@ function UserRow({
           >
             <option value="">No department</option>
             {departments.map((dept) => (
-              <option key={dept.id} value={dept.id}>
+              <option key={dept.id} value={dept.id} disabled={dept.isArchived}>
                 {dept.name}
+                {dept.isArchived ? ' (archived)' : ''}
               </option>
             ))}
           </select>

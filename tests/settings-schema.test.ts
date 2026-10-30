@@ -34,4 +34,26 @@ describe('UpdateSettingsSchema', () => {
       }).success,
     ).toBe(false)
   })
+
+  it('accepts a three-letter currency code and normalises its case', () => {
+    expect(UpdateSettingsSchema.parse({ currency: 'kes' })).toEqual({
+      currency: 'KES',
+    })
+    expect(UpdateSettingsSchema.parse({ currency: ' USD ' })).toEqual({
+      currency: 'USD',
+    })
+  })
+
+  it('rejects malformed currency codes', () => {
+    for (const currency of ['KE', 'KESS', 'K3S', '', 'K S']) {
+      expect(UpdateSettingsSchema.safeParse({ currency }).success).toBe(false)
+    }
+    expect(UpdateSettingsSchema.safeParse({ currency: 42 }).success).toBe(false)
+  })
+
+  it('allows both settings in one request', () => {
+    expect(
+      UpdateSettingsSchema.parse({ warningThreshold: 0.75, currency: 'eur' }),
+    ).toEqual({ warningThreshold: 0.75, currency: 'EUR' })
+  })
 })

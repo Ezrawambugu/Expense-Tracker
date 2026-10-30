@@ -1,9 +1,9 @@
 // XLSX serialization for the Phase 4/7C report exports, built with exceljs.
 // Kept out of the route handler so the sheet layout is easy to change and the
-// builders can be reused by scripts.
+// builders can be reused by scripts. Headers name the currency (Phase 7D).
 
 import ExcelJS from 'exceljs'
-import { BUDGET_CSV_HEADER } from '@/services/report-csv'
+import { budgetHeader } from '@/services/report-csv'
 import type {
   BudgetVsActualRow,
   SummaryReport,
@@ -17,20 +17,24 @@ function headerRow(sheet: ExcelJS.Worksheet, values: string[]) {
   })
 }
 
-export async function summaryToXlsx(report: SummaryReport): Promise<Buffer> {
+export async function summaryToXlsx(
+  report: SummaryReport,
+  currency: string,
+): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook()
   const sheet = workbook.addWorksheet('Summary')
+  const amount = ` (${currency})`
 
   sheet.addRow(['Expense summary', report.month]).font = { bold: true }
-  sheet.addRow(['Total approved', report.totalApproved])
-  sheet.addRow(['Awaiting approval', report.awaitingApproval])
+  sheet.addRow([`Total approved${amount}`, report.totalApproved])
+  sheet.addRow([`Awaiting approval${amount}`, report.awaitingApproval])
   sheet.addRow([])
 
-  headerRow(sheet, ['Category', 'Approved'])
+  headerRow(sheet, ['Category', `Approved${amount}`])
   for (const row of report.byCategory) sheet.addRow([row.category, row.total])
   sheet.addRow([])
 
-  headerRow(sheet, ['Department', 'Approved'])
+  headerRow(sheet, ['Department', `Approved${amount}`])
   for (const row of report.byDepartment) sheet.addRow([row.name, row.total])
 
   for (const column of [2]) {
@@ -43,11 +47,12 @@ export async function summaryToXlsx(report: SummaryReport): Promise<Buffer> {
 export async function budgetToXlsx(
   rows: BudgetVsActualRow[],
   month: string,
+  currency: string,
 ): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook()
   const sheet = workbook.addWorksheet(`Budget vs actual ${month}`)
 
-  headerRow(sheet, BUDGET_CSV_HEADER)
+  headerRow(sheet, budgetHeader(currency))
   for (const row of rows) {
     sheet.addRow([
       row.departmentName,

@@ -1,5 +1,7 @@
-// CSV serialization for the Phase 4 report exports (pure functions, so they
+// CSV serialization for the Phase 4/7C report exports (pure functions, so they
 // can be unit-tested without a database — report-service itself needs one).
+// Headers name the organization's currency (Phase 7D); amounts are never
+// converted.
 
 import { toCsv } from '@/lib/csv'
 import type {
@@ -7,39 +9,46 @@ import type {
   SummaryReport,
 } from '@/services/report-service'
 
-export function summaryToCsv(report: SummaryReport): string {
+export function summaryToCsv(report: SummaryReport, currency: string): string {
+  const amount = ` (${currency})`
   const rows: (string | number)[][] = [
     ['Expense summary', report.month],
-    ['Total approved', report.totalApproved],
-    ['Awaiting approval', report.awaitingApproval],
+    [`Total approved${amount}`, report.totalApproved],
+    [`Awaiting approval${amount}`, report.awaitingApproval],
     [],
-    ['Category', 'Approved'],
+    ['Category', `Approved${amount}`],
     ...report.byCategory.map((row) => [row.category, row.total]),
     [],
-    ['Department', 'Approved'],
+    ['Department', `Approved${amount}`],
     ...report.byDepartment.map((row) => [row.name, row.total]),
   ]
   return toCsv(rows)
 }
 
-export const BUDGET_CSV_HEADER = [
-  'Department',
-  'Category',
-  'Budget',
-  'Carried over',
-  'Available',
-  'Spent',
-  'Remaining',
-  'Percent used',
-  'Status',
-  'Awaiting approval',
-]
+export function budgetHeader(currency: string): string[] {
+  const amount = ` (${currency})`
+  return [
+    'Department',
+    'Category',
+    `Budget${amount}`,
+    `Carried over${amount}`,
+    `Available${amount}`,
+    `Spent${amount}`,
+    `Remaining${amount}`,
+    'Percent used',
+    'Status',
+    `Awaiting approval${amount}`,
+  ]
+}
 
 // Unbudgeted rows have no budget, available amount, remaining or percentage, so
 // those cells stay empty instead of showing a misleading zero.
-export function budgetToCsv(rows: BudgetVsActualRow[]): string {
+export function budgetToCsv(
+  rows: BudgetVsActualRow[],
+  currency: string,
+): string {
   return toCsv([
-    BUDGET_CSV_HEADER,
+    budgetHeader(currency),
     ...rows.map((row) => [
       row.departmentName,
       row.category,

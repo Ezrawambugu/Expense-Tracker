@@ -45,9 +45,11 @@ function StatCard({
 function BreakdownTable({
   caption,
   rows,
+  currency,
 }: {
   caption: string
   rows: { name: string; total: number }[]
+  currency: string
 }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
@@ -70,7 +72,7 @@ function BreakdownTable({
             >
               <td className="px-4 py-2.5">{row.name}</td>
               <td className="px-4 py-2.5 text-right tabular-nums">
-                {formatAmount(row.total)}
+                {formatAmount(row.total, currency)}
               </td>
             </tr>
           ))}
@@ -183,12 +185,12 @@ export default async function ReportsPage({
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <StatCard
           label={`Total approved — ${month}`}
-          value={formatAmount(summary.totalApproved)}
+          value={formatAmount(summary.totalApproved, settings.currency)}
           hint="Approved expenses only."
         />
         <StatCard
           label={`Awaiting approval — ${month}`}
-          value={formatAmount(summary.awaitingApproval)}
+          value={formatAmount(summary.awaitingApproval, settings.currency)}
           hint="Pending expenses; never counted toward budgets."
         />
       </section>
@@ -204,6 +206,7 @@ export default async function ReportsPage({
         </div>
         <BudgetVsActualTable
           rows={rows}
+          currency={settings.currency}
           showDepartment={session.role === 'admin'}
           emptyMessage={`No budgets for ${month} yet.`}
         />
@@ -223,6 +226,7 @@ export default async function ReportsPage({
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <BreakdownTable
             caption="Category"
+            currency={settings.currency}
             rows={summary.byCategory.map((row) => ({
               name: row.category,
               total: row.total,
@@ -230,6 +234,7 @@ export default async function ReportsPage({
           />
           <BreakdownTable
             caption="Department"
+            currency={settings.currency}
             rows={summary.byDepartment.map((row) => ({
               name: row.name,
               total: row.total,
@@ -242,7 +247,7 @@ export default async function ReportsPage({
         <div className="space-y-3">
           <h2 className="text-lg font-semibold">Monthly trend</h2>
           {hasTrend ? (
-            <TrendChart points={trends} />
+            <TrendChart points={trends} currency={settings.currency} />
           ) : (
             <p className="rounded-lg border border-dashed border-neutral-300 px-4 py-10 text-center text-sm text-neutral-500 dark:border-neutral-700">
               No approved spending in the last 6 months.
@@ -255,7 +260,10 @@ export default async function ReportsPage({
         <div className="space-y-3">
           <h2 className="text-lg font-semibold">Spending by category</h2>
           {hasCategoryData ? (
-            <CategoryChart data={summary.byCategory} />
+            <CategoryChart
+              data={summary.byCategory}
+              currency={settings.currency}
+            />
           ) : (
             <p className="rounded-lg border border-dashed border-neutral-300 px-4 py-10 text-center text-sm text-neutral-500 dark:border-neutral-700">
               No approved spending in {month}.

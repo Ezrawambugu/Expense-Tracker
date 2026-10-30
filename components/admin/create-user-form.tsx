@@ -144,6 +144,9 @@ export function CreateUserForm({
                 {fieldErrors.email[0]}
               </p>
             )}
+            <p className="mt-1 text-xs text-neutral-500">
+              An email address belongs to one organization only.
+            </p>
           </div>
 
           <div>
@@ -217,11 +220,13 @@ export function CreateUserForm({
               className={inputClass}
             >
               <option value="">No department</option>
-              {departments.map((dept) => (
-                <option key={dept.id} value={dept.id}>
-                  {dept.name}
-                </option>
-              ))}
+              {departments
+                .filter((dept) => !dept.isArchived)
+                .map((dept) => (
+                  <option key={dept.id} value={dept.id}>
+                    {dept.name}
+                  </option>
+                ))}
             </select>
             {fieldErrors.departmentId && (
               <p className="mt-1 text-xs text-red-600 dark:text-red-400">

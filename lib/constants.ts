@@ -22,3 +22,29 @@ export type ExpenseStatus = (typeof EXPENSE_STATUSES)[number]
 export const USER_ROLES = ['admin', 'manager', 'staff'] as const
 
 export type UserRole = (typeof USER_ROLES)[number]
+
+// Organization currency (Phase 7D): an ISO 4217 code used for display only —
+// amounts are never converted. Defaults to KES for organizations created before
+// the setting existed or seeded without one.
+export const DEFAULT_CURRENCY = 'KES'
+export const CURRENCY_PATTERN = /^[A-Z]{3}$/
+
+// Audit trail vocabulary (rule 7). Lives here so admin filters and schemas can
+// share it without importing mongoose into the browser.
+export const AUDIT_ACTIONS = [
+  'create',
+  'update',
+  'delete',
+  'approve',
+  'reject',
+] as const
+export type AuditAction = (typeof AUDIT_ACTIONS)[number]
+
+export const AUDIT_ENTITIES = [
+  'Budget',
+  'Department',
+  'Expense',
+  'Organization',
+  'User',
+] as const
+export type AuditEntity = (typeof AUDIT_ENTITIES)[number]
