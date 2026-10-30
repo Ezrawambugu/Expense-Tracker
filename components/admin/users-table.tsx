@@ -42,6 +42,11 @@ function UserRow({
   const [departmentId, setDepartmentId] = useState(user.departmentId)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // Shown once after a password reset; only ever the plaintext the server
+  // returned in this response — it is never stored or re-fetchable.
+  const [temporaryPassword, setTemporaryPassword] = useState<string | null>(
+    null,
+  )
 
   const dirty = role !== user.role || departmentId !== user.departmentId
 
@@ -94,6 +99,44 @@ function UserRow({
       setError('Unable to change the user status. Please try again.')
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function resetPassword() {
+    const message = `Reset the password for ${user.name}? A temporary password will be generated and they must change it before signing in.`
+    if (!window.confirm(message)) return
+
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setError(data.error ?? 'Unable to reset the password')
+        return
+      }
+      const data = (await res.json()) as { temporaryPassword: string }
+      setTemporaryPassword(data.temporaryPassword)
+      toast('Temporary password created')
+      router.refresh()
+    } catch {
+      setError('Unable to reset the password. Please try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function copyPassword() {
+    if (!temporaryPassword) return
+    try {
+      await navigator.clipboard.writeText(temporaryPassword)
+      toast('Temporary password copied')
+    } catch {
+      setError('Could not copy — select the password and copy it manually.')
     }
   }
 
@@ -168,14 +211,24 @@ function UserRow({
               {busy ? 'Saving…' : 'Save'}
             </button>
             {!isSelf && (
-              <button
-                type="button"
-                onClick={toggleActive}
-                disabled={busy}
-                className={dangerButtonClass}
-              >
-                {user.isActive ? 'Deactivate' : 'Reactivate'}
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={toggleActive}
+                  disabled={busy}
+                  className={dangerButtonClass}
+                >
+                  {user.isActive ? 'Deactivate' : 'Reactivate'}
+                </button>
+                <button
+                  type="button"
+                  onClick={resetPassword}
+                  disabled={busy}
+                  className={buttonClass}
+                >
+                  Reset password
+                </button>
+              </>
             )}
           </div>
           {error && (
@@ -188,6 +241,38 @@ function UserRow({
           )}
         </td>
       </tr>
+      {temporaryPassword && (
+        <tr className="bg-amber-50/60 dark:bg-amber-950/20">
+          <td colSpan={6} className="px-3 py-2 text-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-medium">
+                Temporary password for {user.email}:
+              </span>
+              <code className="rounded bg-neutral-100 px-2 py-0.5 font-mono dark:bg-neutral-800">
+                {temporaryPassword}
+              </code>
+              <button
+                type="button"
+                onClick={copyPassword}
+                className="text-xs font-medium underline"
+              >
+                Copy
+              </button>
+              <button
+                type="button"
+                onClick={() => setTemporaryPassword(null)}
+                className="text-xs underline"
+              >
+                Dismiss
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+              Give this to the user. They must change it at next sign-in and
+              cannot use the app until they do.
+            </p>
+          </td>
+        </tr>
+      )}
     </>
   )
 }

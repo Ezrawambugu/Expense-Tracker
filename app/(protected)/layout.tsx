@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { getSession } from '@/lib/session'
 import { Nav } from '@/components/nav'
 import { LogoutButton } from '@/components/logout-button'
@@ -20,6 +21,11 @@ export default async function ProtectedLayout({
   const session = await getSession()
   if (!session) redirect('/login')
 
+  // An admin-set temporary password blocks every other page until it is
+  // changed. This forced page lives outside the (protected) group so it is
+  // the one page the redirect below does not swallow.
+  if (session.mustChangePassword) redirect('/account/change-password')
+
   // ToastProvider wraps the shell so a toast survives client-side navigation
   // within the protected area (the layout stays mounted across route changes).
   return (
@@ -32,6 +38,12 @@ export default async function ProtectedLayout({
               <Nav role={session.role} />
             </div>
             <div className="flex items-center gap-3 text-sm">
+              <Link
+                href="/account"
+                className="rounded-md px-2 py-1.5 text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              >
+                Account
+              </Link>
               <span className="text-neutral-500 capitalize">
                 {session.role}
               </span>

@@ -5,7 +5,7 @@
 import mongoose from 'mongoose'
 import { connectDB } from '@/lib/db'
 import { httpError } from '@/lib/api-error'
-import { hashPassword } from '@/lib/password'
+import { hashPassword, generateTemporaryPassword } from '@/lib/password'
 import type { Session } from '@/lib/auth'
 import { recordAudit } from '@/services/audit-service'
 import { User, type IUser, type Role } from '@/models/user'
@@ -14,6 +14,7 @@ import { Budget } from '@/models/budget'
 import type {
   CreateUserInput,
   DepartmentNameInput,
+  ResetPasswordInput,
   UpdateUserInput,
 } from '@/schemas/admin'
 
@@ -194,6 +195,45 @@ export async function updateUser(
     entityId: String(user._id),
   })
   return toUserView(user)
+}
+
+// Admin sets a temporary password (Phase 7A). The plaintext temporary
+// password is returned exactly once, to the admin who requested it; only the
+// hash is stored. mustChangePassword blocks the user's next session until they
+// pick their own password. An admin cannot reset their own password here —
+// that would sidestep the current-password check on /account.
+export async function resetUserPassword(
+  session: Session,
+  id: string,
+  input: ResetPasswordInput,
+): Promise<{ temporaryPassword: string }> {
+  if (!mongoose.isValidObjectId(id)) throw httpError(404, 'User not found')
+
+  await connectDB()
+
+  const user = await User.findOne({
+    _id: id,
+    organizationId: session.organizationId,
+  })
+  if (!user) throw httpError(404, 'User not found')
+  if (String(user._id) === session.userId) {
+    throw httpError(400, 'You cannot reset your own password')
+  }
+
+  const temporaryPassword = input.password ?? generateTemporaryPassword()
+  user.passwordHash = await hashPassword(temporaryPassword)
+  user.mustChangePassword = true
+  await user.save()
+
+  await recordAudit({
+    organizationId: session.organizationId,
+    userId: session.userId,
+    action: 'update',
+    entity: 'User',
+    entityId: String(user._id),
+  })
+
+  return { temporaryPassword }
 }
 
 // ---------- Departments ----------
