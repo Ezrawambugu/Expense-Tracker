@@ -7,6 +7,7 @@ import { departmentNames } from '@/services/directory-service'
 import { formatAmount, currentMonth } from '@/lib/format'
 import { CATEGORIES } from '@/lib/constants'
 import { BudgetForm } from '@/components/budget-form'
+import { CopyBudgetsForm } from '@/components/copy-budgets-form'
 import { DeleteBudgetButton } from '@/components/delete-budget-button'
 
 // Reads the session cookie and search params on every request.
@@ -76,6 +77,17 @@ export default async function BudgetsPage({
             idPrefix="new-budget"
             initial={{ month: query.month ?? currentMonth() }}
           />
+        </section>
+      )}
+
+      {canEdit && (
+        <section className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
+          <h2 className="text-sm font-semibold">Copy budgets from a month</h2>
+          <p className="mt-1 mb-3 text-xs text-neutral-500">
+            Start a new month from an existing one instead of retyping every
+            category.
+          </p>
+          <CopyBudgetsForm />
         </section>
       )}
 
@@ -193,6 +205,11 @@ export default async function BudgetsPage({
                   )}
                   <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
                     {formatAmount(budget.amount)}
+                    {budget.carryOver && (
+                      <span className="mt-1 block text-xs text-neutral-500">
+                        carries over
+                      </span>
+                    )}
                   </td>
                   {canEdit && (
                     <td className="px-4 py-3 whitespace-nowrap">

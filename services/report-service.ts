@@ -14,13 +14,16 @@ import { reportScope } from '@/services/report-scope'
 import { Expense } from '@/models/expense'
 import { Budget, type IBudget } from '@/models/budget'
 import { Department } from '@/models/department'
+import { Organization } from '@/models/organization'
 import { CATEGORIES, type Category } from '@/lib/constants'
 import {
+  BUDGET_THRESHOLDS,
   budgetStatus,
   percentUsed,
   type BudgetStatus,
+  type BudgetThresholds,
 } from '@/lib/budget-status'
-import { currentMonth } from '@/lib/format'
+import { currentMonth, previousMonth } from '@/lib/format'
 
 export type CategoryTotal = { category: Category; total: number }
 
@@ -42,11 +45,17 @@ export type BudgetVsActualRow = {
   departmentId: string
   departmentName: string
   category: Category
-  budget: number
+  // `null` for an unbudgeted row: approved spending in a category that has no
+  // budget that month (Phase 7C).
+  budget: number | null
+  // Unspent amount carried in from the previous month (carryOver budgets).
+  carriedOver: number
+  // budget + carriedOver; null when there is no budget at all.
+  available: number | null
   spent: number
-  remaining: number
-  // Ratio (0.85 = 85% used); status derives from it via the threshold config.
-  percentUsed: number
+  remaining: number | null
+  // Ratio used (0.85 = 85% of the available amount); null when unbudgeted.
+  percentUsed: number | null
   status: BudgetStatus
   awaitingApproval: number
 }
@@ -183,22 +192,12 @@ type SpendRow = {
   total: number
 }
 
-// b) Budget vs actual: one row per budget with spent, remaining, percent
-// used and status. Only approved expenses count as spent (rule 5).
-export async function budgetVsActual(
+// Approved + pending spend for a month, keyed `departmentId|category|status`.
+async function spendTotals(
   session: Session,
   month: string,
-): Promise<BudgetVsActualRow[]> {
-  await connectDB()
-
+): Promise<Map<string, number>> {
   const { start, end } = monthRange(month)
-
-  const budgets = await Budget.find({
-    organizationId: session.organizationId,
-    ...reportScope(session),
-    month,
-  }).lean<IBudget[]>()
-  if (budgets.length === 0) return []
 
   const spend = await Expense.aggregate<SpendRow>([
     {
@@ -226,33 +225,150 @@ export async function budgetVsActual(
     const key = `${row._id.departmentId ?? ''}|${row._id.category}|${row._id.status}`
     totals.set(key, (totals.get(key) ?? 0) + row.total)
   }
+  return totals
+}
 
-  const names = await departmentNamesByIds(
-    session,
-    budgets.map((b) => String(b.departmentId)),
+function departmentCategoryKey(
+  departmentId: string,
+  category: Category,
+): string {
+  return `${departmentId}|${category}`
+}
+
+// Rollover (Phase 7C): for budgets that opted in, the unspent approved amount
+// of the previous month's budget for the same department + category. One level
+// only — the previous month's own carried amount is not chained. Clamped at
+// zero, so an overspent month carries nothing.
+async function carriedOverByKey(
+  session: Session,
+  month: string,
+  budgets: IBudget[],
+): Promise<Map<string, number>> {
+  const carried = new Map<string, number>()
+  if (!budgets.some((budget) => budget.carryOver)) return carried
+
+  const previous = previousMonth(month)
+  const [previousBudgets, previousSpend] = await Promise.all([
+    Budget.find({
+      organizationId: session.organizationId,
+      ...reportScope(session),
+      month: previous,
+    }).lean<IBudget[]>(),
+    spendTotals(session, previous),
+  ])
+
+  const previousAmounts = new Map(
+    previousBudgets.map((budget) => [
+      departmentCategoryKey(String(budget.departmentId), budget.category),
+      budget.amount,
+    ]),
   )
+
+  for (const budget of budgets) {
+    if (!budget.carryOver) continue
+    const key = departmentCategoryKey(
+      String(budget.departmentId),
+      budget.category,
+    )
+    const previousAmount = previousAmounts.get(key)
+    if (previousAmount === undefined) continue
+    const previousSpent = round2(previousSpend.get(`${key}|approved`) ?? 0)
+    carried.set(key, round2(Math.max(0, previousAmount - previousSpent)))
+  }
+
+  return carried
+}
+
+// b) Budget vs actual: one row per budget with spent, remaining, percent
+// used and status, plus an "unbudgeted" row for every department/category with
+// approved spending but no budget that month (Phase 7C). Only approved
+// expenses count as spent (rule 5).
+export async function budgetVsActual(
+  session: Session,
+  month: string,
+): Promise<BudgetVsActualRow[]> {
+  await connectDB()
+
+  const [budgets, org] = await Promise.all([
+    Budget.find({
+      organizationId: session.organizationId,
+      ...reportScope(session),
+      month,
+    }).lean<IBudget[]>(),
+    // The warning line is per-organization (Phase 7C); 100% is always exceeded.
+    Organization.findOne({ _id: session.organizationId })
+      .select('warningThreshold')
+      .lean<{ warningThreshold?: number } | null>(),
+  ])
+
+  const thresholds: BudgetThresholds = {
+    warning: org?.warningThreshold ?? BUDGET_THRESHOLDS.warning,
+    exceeded: BUDGET_THRESHOLDS.exceeded,
+  }
+
+  const totals = await spendTotals(session, month)
+  const carriedOver = await carriedOverByKey(session, month, budgets)
+
+  const budgetKeys = new Set(
+    budgets.map((budget) =>
+      departmentCategoryKey(String(budget.departmentId), budget.category),
+    ),
+  )
+
+  // Approved spending with no budget: department-less spending is skipped (a
+  // budget always belongs to a department).
+  const unbudgeted: { departmentId: string; category: Category }[] = []
+  for (const key of totals.keys()) {
+    const [departmentId, category, status] = key.split('|')
+    if (status !== 'approved' || !departmentId || !category) continue
+    if (budgetKeys.has(`${departmentId}|${category}`)) continue
+    unbudgeted.push({ departmentId, category: category as Category })
+  }
+
+  const names = await departmentNamesByIds(session, [
+    ...budgets.map((budget) => String(budget.departmentId)),
+    ...unbudgeted.map((row) => row.departmentId),
+  ])
 
   const rows: BudgetVsActualRow[] = budgets.map((budget) => {
     const departmentId = String(budget.departmentId)
-    const spent = round2(
-      totals.get(`${departmentId}|${budget.category}|approved`) ?? 0,
-    )
-    const awaiting = round2(
-      totals.get(`${departmentId}|${budget.category}|pending`) ?? 0,
-    )
-    const ratio = percentUsed(spent, budget.amount)
+    const key = departmentCategoryKey(departmentId, budget.category)
+    const spent = round2(totals.get(`${key}|approved`) ?? 0)
+    const awaiting = round2(totals.get(`${key}|pending`) ?? 0)
+    const carried = carriedOver.get(key) ?? 0
+    const available = round2(budget.amount + carried)
+    const ratio = percentUsed(spent, available)
     return {
       departmentId,
       departmentName: names[departmentId] ?? 'Unknown department',
       category: budget.category,
       budget: budget.amount,
+      carriedOver: carried,
+      available,
       spent,
-      remaining: round2(budget.amount - spent),
+      remaining: round2(available - spent),
       percentUsed: ratio,
-      status: budgetStatus(ratio),
+      status: budgetStatus(ratio, thresholds),
       awaitingApproval: awaiting,
     }
   })
+
+  for (const row of unbudgeted) {
+    const key = departmentCategoryKey(row.departmentId, row.category)
+    rows.push({
+      departmentId: row.departmentId,
+      departmentName: names[row.departmentId] ?? 'Unknown department',
+      category: row.category,
+      budget: null,
+      carriedOver: 0,
+      available: null,
+      spent: round2(totals.get(`${key}|approved`) ?? 0),
+      remaining: null,
+      percentUsed: null,
+      status: 'unbudgeted',
+      awaitingApproval: round2(totals.get(`${key}|pending`) ?? 0),
+    })
+  }
 
   // Stable, readable order: department name, then the fixed category order.
   return rows.sort(
@@ -262,7 +378,16 @@ export async function budgetVsActual(
   )
 }
 
-// c) Alerts: the budget rows that need attention, worst first.
+// Alerts order: exceeded first, then warnings, then unbudgeted rows (which have
+// no percentage to rank by). Ties fall back to the larger spend.
+const ALERT_RANK: Record<BudgetStatus, number> = {
+  exceeded: 0,
+  warning: 1,
+  unbudgeted: 2,
+  ok: 3,
+}
+
+// c) Alerts: the rows that need attention, worst first.
 export async function budgetAlerts(
   session: Session,
   month: string = currentMonth(),
@@ -270,7 +395,12 @@ export async function budgetAlerts(
   const rows = await budgetVsActual(session, month)
   return rows
     .filter((row) => row.status !== 'ok')
-    .sort((a, b) => b.percentUsed - a.percentUsed)
+    .sort(
+      (a, b) =>
+        ALERT_RANK[a.status] - ALERT_RANK[b.status] ||
+        (b.percentUsed ?? 0) - (a.percentUsed ?? 0) ||
+        b.spent - a.spent,
+    )
 }
 
 // d) Trends: approved spending per month for the last `months` months,

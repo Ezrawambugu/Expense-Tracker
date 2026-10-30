@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { csvCell, toCsv } from '@/lib/csv'
-import { budgetToCsv, summaryToCsv } from '@/services/report-csv'
+import {
+  BUDGET_CSV_HEADER,
+  budgetToCsv,
+  summaryToCsv,
+} from '@/services/report-csv'
 import type {
   BudgetVsActualRow,
   SummaryReport,
@@ -70,6 +74,8 @@ const budgetRow: BudgetVsActualRow = {
   departmentName: 'Operations',
   category: 'Meals',
   budget: 500,
+  carriedOver: 0,
+  available: 500,
   spent: 400,
   remaining: 100,
   percentUsed: 0.8,
@@ -77,13 +83,49 @@ const budgetRow: BudgetVsActualRow = {
   awaitingApproval: 0,
 }
 
+const unbudgetedRow: BudgetVsActualRow = {
+  departmentId: 'dept-1',
+  departmentName: 'Operations',
+  category: 'Events',
+  budget: null,
+  carriedOver: 0,
+  available: null,
+  spent: 90,
+  remaining: null,
+  percentUsed: null,
+  status: 'unbudgeted',
+  awaitingApproval: 0,
+}
+
 describe('budgetToCsv', () => {
   it('writes one row per budget with all columns', () => {
     const csv = budgetToCsv([budgetRow])
+    expect(csv).toContain(BUDGET_CSV_HEADER.join(','))
     expect(csv).toContain(
-      'Department,Category,Budget,Spent,Remaining,Percent used,Status,Awaiting approval',
+      'Department,Category,Budget,Carried over,Available,Spent,Remaining,Percent used,Status,Awaiting approval',
     )
-    expect(csv).toContain('Operations,Meals,500,400,100,80,warning,0')
+    expect(csv).toContain('Operations,Meals,500,0,500,400,100,80,warning,0')
+  })
+
+  it('shows the carried-over amount and the available total (Phase 7C)', () => {
+    const csv = budgetToCsv([
+      {
+        ...budgetRow,
+        budget: 500,
+        carriedOver: 150,
+        available: 650,
+        spent: 500,
+        remaining: 150,
+        percentUsed: 0.769,
+      },
+    ])
+    expect(csv).toContain('Operations,Meals,500,150,650,500,150,76.9,warning,0')
+  })
+
+  it('leaves the budget figures empty for an unbudgeted row', () => {
+    const csv = budgetToCsv([unbudgetedRow])
+    // Budget, available, remaining and percent are blank; carry-over is 0.
+    expect(csv).toContain('Operations,Events,,0,,90,,,unbudgeted,0')
   })
 
   it('quotes department names containing commas', () => {

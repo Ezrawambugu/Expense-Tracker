@@ -37,6 +37,7 @@ export default async function EditBudgetPage({
           month: budget.month,
           category: budget.category,
           amount: String(budget.amount),
+          carryOver: budget.carryOver,
         }}
       />
 
