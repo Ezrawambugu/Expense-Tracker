@@ -1,7 +1,7 @@
 # Project Knowledge
 
 ## Current phase
-**All phases (0–6) are approved and complete.** The build plan in `docs/MASTER_PROMPT.md` is fully delivered. Per `AGENTS.md`, knowledge.md records the approved phase state; start any new work as a fresh, separately approved request.
+**Phase 7 started, sub-phase 7A.** The build plan in `docs/MASTER_PROMPT.md` is fully delivered. Per `AGENTS.md`, knowledge.md records the approved phase state; start any new work as a fresh, separately approved request.
 
 ## Phase status
 - ✅ Phase 0 — Setup: Next.js app, cached DB conn, `/api/health`, lint/build/tests green.
