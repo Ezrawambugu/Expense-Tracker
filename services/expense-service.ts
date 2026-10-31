@@ -10,6 +10,12 @@ import { httpError } from '@/lib/api-error'
 import type { Session } from '@/lib/auth'
 import { expenseScope, reviewScope } from '@/services/expense-scope'
 import { recordAudit } from '@/services/audit-service'
+import {
+  notifyBudgetCrossedAfterApproval,
+  notifyExpenseApproved,
+  notifyExpenseAwaitingReview,
+  notifyExpenseRejected,
+} from '@/services/notification-service'
 import { Expense, type IExpense } from '@/models/expense'
 import { Department } from '@/models/department'
 import type {
@@ -185,6 +191,9 @@ export async function createExpense(
     entityId: String(doc._id),
   })
 
+  // The reviewers of this expense are told it is waiting (Phase 7E).
+  await notifyExpenseAwaitingReview(doc, '/approvals')
+
   return toView(doc)
 }
 
@@ -295,6 +304,15 @@ export async function reviewExpense(
     entity: 'Expense',
     entityId: String(doc._id),
   })
+
+  // Phase 7E: the submitter hears the decision, and an approval that pushes a
+  // budget across a threshold notifies that department's managers.
+  if (doc.status === 'approved') {
+    await notifyExpenseApproved(doc, '/expenses')
+    await notifyBudgetCrossedAfterApproval(doc)
+  } else {
+    await notifyExpenseRejected(doc, '/expenses')
+  }
 
   return toView(doc)
 }

@@ -5,6 +5,9 @@ import { Nav } from '@/components/nav'
 import { LogoutButton } from '@/components/logout-button'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { ToastProvider } from '@/components/toast'
+import { NotificationBell } from '@/components/notification-bell'
+import { unreadNotificationCount } from '@/lib/notification'
+import { listNotifications } from '@/services/notification-service'
 
 // Authenticated shell for all protected pages. Middleware already guards
 // routes; this is defense-in-depth and provides the role-aware chrome.
@@ -28,6 +31,9 @@ export default async function ProtectedLayout({
 
   // ToastProvider wraps the shell so a toast survives client-side navigation
   // within the protected area (the layout stays mounted across route changes).
+  const unreadResult = await unreadNotificationCount(session)
+  const latest = await listNotifications(session, { page: 1, pageSize: 10 })
+
   return (
     <ToastProvider>
       <div className="flex min-h-full flex-col">
@@ -48,6 +54,10 @@ export default async function ProtectedLayout({
                 {session.role}
               </span>
               <ThemeToggle />
+              <NotificationBell
+                unreadCount={unreadResult}
+                latest={latest.items}
+              />
               <LogoutButton />
             </div>
           </div>
