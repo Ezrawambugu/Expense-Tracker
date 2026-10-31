@@ -48,3 +48,17 @@ export const AUDIT_ENTITIES = [
   'User',
 ] as const
 export type AuditEntity = (typeof AUDIT_ENTITIES)[number]
+
+// In-app notification vocabulary (Phase 7E). Client-safe so the bell and the
+// notifications page can label entries without importing the model.
+export const NOTIFICATION_TYPES = [
+  'expense_approved',
+  'expense_rejected',
+  'expense_pending',
+  'budget_warning',
+  'budget_exceeded',
+] as const
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
+
+// Notifications expire automatically once they are this old (TTL index).
+export const NOTIFICATION_TTL_DAYS = 90

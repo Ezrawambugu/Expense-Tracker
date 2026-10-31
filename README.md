@@ -19,7 +19,9 @@ The system closes the classic plan / do / observe / act loop:
 | --- | --- | --- |
 | **staff** | Create, edit and delete their own expenses while pending; filter, sort and page through them; see their department's budget status (read-only); track approval status and reasons | Set budgets, approve expenses, view reports, manage users |
 | **manager** | Everything staff can do in their department; create, edit and delete department budgets; approve or reject pending expenses with an optional reason; view reports, charts and alerts; export CSV | Create or deactivate users, manage departments, see other departments |
-| **admin** | Manage users (create, assign role/department, deactivate/reactivate) and departments (create, rename, archive/unarchive, delete when unused); read the organization's audit log; set the warning threshold and currency; view every department's expenses, budgets and reports read-only | Approve or reject expenses (managers do that), change their own role or status |
+| **admin** | Manage users (create, assign role/department, reset passwords, deactivate/reactivate) and departments (create, rename, archive/unarchive, delete when unused); browse the organization's audit log at `/admin/audit` (filter by user, entity, action and date; read-only, newest first, paginated); set the warning threshold and currency; approve or reject manager expenses; view every department's expenses, budgets and reports read-only | Approve or reject staff expenses (their department manager does that), review their own expenses, change their own role or status |
+
+Every user has an in-app notification bell in the header (unread badge, latest 10, mark one or all as read) and a paginated `/notifications` page. Notifications are created by the services when an expense needs review, is approved or rejected, or when an approval pushes a budget across its warning or exceeded line; they are always scoped to one recipient.
 
 Registration creates a new organization and its first admin, so every organization's data is isolated (multi-tenant: every query is filtered by the session's `organizationId`).
 
@@ -95,7 +97,7 @@ All use password `Password123!`:
 | `npm run format` / `npm run format:check` | Prettier write/check |
 | `npm test` / `npm run test:watch` | Vitest unit tests |
 
-End-to-end checks (dev server must be running): `npx tsx scripts/verify-phase3.mts`, `scripts/verify-phase4.mts`, `scripts/verify-phase5.mts`. Each creates throwaway organizations, asserts the behavior against fixtures, cleans up and exits non-zero on failure.
+End-to-end checks (dev server must be running): `npx tsx scripts/verify-phase7e.mts`, `scripts/verify-phase3.mts`, `scripts/verify-phase4.mts`, `scripts/verify-phase5.mts`. Each creates throwaway organizations, asserts the behavior against fixtures, cleans up and exits non-zero on failure.
 
 ## Project structure
 
@@ -137,7 +139,7 @@ All routes are under `/api`. Errors use a consistent envelope: `{ "error": strin
 | Method | Path | Role | Notes |
 | --- | --- | --- | --- |
 | GET | `/api/expenses` | admin, manager, staff | Filters `category`, `status`, `from`, `to`; paging via `page`/`pageSize` (max 100), sorting via `sortBy` (`date`, `amount`, `createdAt`) and `sortDir`; scope: staff own, manager department, admin all |
-| POST | `/api/expenses` | staff | `{ category, amount, date, description }`; amount > 0, date not in the future, description max 200 |
+| POST | `/api/expenses` | staff, manager | `{ category, amount, date, description }`; amount > 0, date not in the future, description max 200 |
 | GET | `/api/expenses/:id` | admin, manager, staff | 404 outside the caller's scope |
 | PATCH | `/api/expenses/:id` | staff (owner, pending only) | 403 for others, 409 once reviewed |
 | DELETE | `/api/expenses/:id` | staff (owner, pending only) | As above |
@@ -149,6 +151,7 @@ All routes are under `/api`. Errors use a consistent envelope: `{ "error": strin
 | --- | --- | --- | --- |
 | GET | `/api/budgets` | manager, admin | `month` and `category` filters; manager sees own department, admin sees all |
 | POST | `/api/budgets` | manager | `{ category, amount, month }` for the manager's own department; 409 for a duplicate department/category/month |
+| POST | `/api/budgets/copy` | manager | `{ fromMonth, toMonth }`; copies budgets into a month, skipping existing categories; returns `{ month, created, skipped }` |
 | GET | `/api/budgets/:id` | manager, admin | 404 outside scope |
 | PATCH | `/api/budgets/:id` | manager (own department) | Partial update |
 | DELETE | `/api/budgets/:id` | manager (own department) | |
@@ -157,7 +160,7 @@ All routes are under `/api`. Errors use a consistent envelope: `{ "error": strin
 
 | Method | Path | Role | Notes |
 | --- | --- | --- | --- |
-| GET | `/api/reports/export?report=summary\|budget&month=YYYY-MM` | admin, manager | CSV download; `month` defaults to the current month |
+| GET | `/api/reports/export?report=summary\|budget&month=YYYY-MM&format=csv\|xlsx` | admin, manager | Download (CSV by default); `month` defaults to the current month |
 
 Report data itself is server-rendered on `/reports`; charts are Recharts components.
 
@@ -168,10 +171,21 @@ Report data itself is server-rendered on `/reports`; charts are Recharts compone
 | GET | `/api/admin/users` | admin | List with department names |
 | POST | `/api/admin/users` | admin | `{ name, email, password, role, departmentId }` (use `null` for no department); 409 on a duplicate email |
 | PATCH | `/api/admin/users/:id` | admin | any of `{ name?, email?, role?, departmentId?, isActive? }`; cannot change own role/status, org must keep one active admin |
+| GET | `/api/admin/audit` | admin | Read-only audit trail; filters `userId`, `entity`, `action`, `from`, `to`; paged `page`/`pageSize` (max 100), newest first |
 | GET | `/api/admin/departments` | admin | Includes `userCount` |
 | POST | `/api/admin/departments` | admin | `{ name }`; 409 on a duplicate name in the org |
 | PATCH | `/api/admin/departments/:id` | admin | Rename |
-| DELETE | `/api/admin/departments/:id` | admin | 409 while users or budgets reference it |
+| DELETE | `/api/admin/departments/:id` | admin | 409 while users, budgets or expenses reference it (archive instead) |
+| POST | `/api/admin/departments/:id/archive` / `unarchive` | admin | Archives a department: its name stays in history, new users/budgets/expenses are refused |
+| GET | `/api/admin/settings` | admin | `{ name, warningThreshold, currency }` |
+| PATCH | `/api/admin/settings` | admin | `{ warningThreshold?, currency? }`; threshold 0.5–0.95, currency ISO 4217 |
+
+### Notifications
+
+| Method | Path | Role | Notes |
+| --- | --- | --- | --- |
+| GET | `/api/notifications` | any session | The caller's own inbox, newest first; `page`/`pageSize` (max 50); includes `unreadCount` |
+| POST | `/api/notifications` | any session | `{ ids: [...] }` or `{ all: true }` marks the caller's own notifications as read; returns `{ updatedCount }` |
 
 ## Security notes
 
@@ -197,7 +211,6 @@ Report data itself is server-rendered on `/reports`; charts are Recharts compone
 - Password reset and invitation emails.
 - Recurring budgets and budget carry-over between months.
 - Export formats beyond CSV (for example XLSX or PDF) and a chart export.
-- Notification when a category crosses the warning threshold.
 - Sharing the rate limiter through a store such as Redis for multi-instance deployments.
 - Per-organization branding.
 
