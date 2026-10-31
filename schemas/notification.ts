@@ -14,15 +14,18 @@ export type NotificationQuery = z.infer<typeof NotificationQuerySchema>
 export const MarkNotificationsReadSchema = z
   .object({
     ids: z
-      .array(z.string().regex(/^[0-9a-fA-F]{24}$/, 'Use a valid notification id'))
+      .array(
+        z.string().regex(/^[0-9a-fA-F]{24}$/, 'Use a valid notification id'),
+      )
       .min(1)
       .max(50)
       .optional(),
     all: z.boolean().optional(),
   })
   .refine(
-    (input) =>
-      (input.ids?.length ?? 0) + (input.all ? 1 : 0) > 0,
+    (input) => (input.ids?.length ?? 0) + (input.all ? 1 : 0) > 0,
     'Provide at least one notification id, or set all to true',
   )
-export type MarkNotificationsReadInput = z.infer<typeof MarkNotificationsReadSchema>
+export type MarkNotificationsReadInput = z.infer<
+  typeof MarkNotificationsReadSchema
+>

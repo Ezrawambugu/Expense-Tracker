@@ -31,7 +31,9 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    return NextResponse.json(await listNotifications(guard.session, parsed.data))
+    return NextResponse.json(
+      await listNotifications(guard.session, parsed.data),
+    )
   } catch (err) {
     return errorResponse(err)
   }

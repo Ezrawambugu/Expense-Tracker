@@ -15,7 +15,6 @@ process.env.NODE_ENV = process.env.NODE_ENV ?? 'development'
 
 const BASE = process.env.VERIFY_BASE ?? 'http://localhost:3000'
 const PASS = 'Password123!'
-const month = new Date().toISOString().slice(0, 7)
 
 let passed = 0
 const failures: string[] = []

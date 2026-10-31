@@ -33,7 +33,11 @@ import {
 import { currencyOf, warningThresholdOf } from '@/services/organization-service'
 import { Budget, type IBudget } from '@/models/budget'
 import { Expense } from '@/models/expense'
-import { Notification, type NotificationType, type INotification } from '@/models/notification'
+import {
+  Notification,
+  type NotificationType,
+  type INotification,
+} from '@/models/notification'
 import { Organization } from '@/models/organization'
 import { User } from '@/models/user'
 
@@ -173,9 +177,7 @@ async function recipientsFor(
   if (audience.departmentId) filter.departmentId = audience.departmentId
   if (excludeUserId) filter._id = { $ne: excludeUserId }
 
-  const users = await User.find(filter)
-    .select('_id')
-    .lean<{ _id: unknown }[]>()
+  const users = await User.find(filter).select('_id').lean<{ _id: unknown }[]>()
 
   return users.map((user) => String(user._id))
 }
@@ -366,13 +368,19 @@ export async function notifyBudgetCrossedAfterApproval(
 
   const org = await Organization.findById(organizationId)
     .select('warningThreshold currency')
-    .lean<{ warningThreshold?: number | null; currency?: string | null } | null>()
+    .lean<{
+      warningThreshold?: number | null
+      currency?: string | null
+    } | null>()
   const thresholds: BudgetThresholds = {
     warning: warningThresholdOf(org ?? {}),
     exceeded: BUDGET_THRESHOLDS.exceeded,
   }
 
-  const before = budgetStatus(percentUsed(spentBefore, budget.amount), thresholds)
+  const before = budgetStatus(
+    percentUsed(spentBefore, budget.amount),
+    thresholds,
+  )
   const after = budgetStatus(percentUsed(spentAfter, budget.amount), thresholds)
 
   // Nothing to say when the budget is still fine, or was already in this state

@@ -62,26 +62,42 @@ export default async function NotificationsPage({
         <table className="w-full text-left text-sm">
           <thead className="border-b border-neutral-200 text-xs tracking-wide text-neutral-500 uppercase dark:border-neutral-800">
             <tr>
-              <th scope="col" className="px-4 py-3">Type</th>
-              <th scope="col" className="px-4 py-3">Message</th>
-              <th scope="col" className="px-4 py-3">When</th>
-              <th scope="col" className="px-4 py-3 w-24">Status</th>
+              <th scope="col" className="px-4 py-3">
+                Type
+              </th>
+              <th scope="col" className="px-4 py-3">
+                Message
+              </th>
+              <th scope="col" className="px-4 py-3">
+                When
+              </th>
+              <th scope="col" className="w-24 px-4 py-3">
+                Status
+              </th>
             </tr>
           </thead>
           <tbody>
             {result.items.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-4 py-10 text-center text-neutral-500">
+                <td
+                  colSpan={4}
+                  className="px-4 py-10 text-center text-neutral-500"
+                >
                   No notifications.
                 </td>
               </tr>
             ) : (
               result.items.map((item) => (
-                <tr key={item.id} className="border-b border-neutral-100 last:border-0 dark:border-neutral-900">
+                <tr
+                  key={item.id}
+                  className="border-b border-neutral-100 last:border-0 dark:border-neutral-900"
+                >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 text-neutral-900 dark:text-neutral-100">
                       <NotificationIcon name={item.type} />
-                      <span className="text-sm">{STATUS_LABELS[item.type] ?? item.type}</span>
+                      <span className="text-sm">
+                        {STATUS_LABELS[item.type] ?? item.type}
+                      </span>
                     </div>
                   </td>
                   <td className="px-4 py-3 text-neutral-700 dark:text-neutral-300">
@@ -92,7 +108,9 @@ export default async function NotificationsPage({
                   </td>
                   <td className="px-4 py-3 text-right">
                     {item.readAt === null ? (
-                      <span className="text-xs font-medium uppercase tracking-wide text-amber-600 dark:text-amber-400">Unread</span>
+                      <span className="text-xs font-medium tracking-wide text-amber-600 uppercase dark:text-amber-400">
+                        Unread
+                      </span>
                     ) : (
                       <span className="text-xs text-neutral-400">Read</span>
                     )}
