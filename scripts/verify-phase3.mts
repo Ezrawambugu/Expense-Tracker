@@ -51,6 +51,7 @@ type BudgetJson = {
   category: string
   amount: number
   month: string
+  carryOver: boolean
   createdAt: string
 }
 
@@ -59,6 +60,7 @@ type ExpenseJson = {
   organizationId: string
   departmentId: string | null
   userId: string
+  submitterRole: string
   category: string
   amount: number
   date: string
@@ -79,6 +81,8 @@ type ApiBody = {
   budgets?: BudgetJson[]
   total?: number
   success?: boolean
+  created?: number
+  skipped?: number
 }
 
 async function api(
@@ -532,6 +536,116 @@ async function main() {
   const gone = await api(manager, 'GET', `/api/budgets/${b2.json!.budget!.id}`)
   check('deleted budget is a 404', gone.status === 404, gone.json)
 
+  // ---------- Phase 7C: copy budgets between months ----------
+  const copyFrom = month(4)
+  const copyTo = month(5)
+  const copyBudget = (cookie: string, body: Record<string, unknown>) =>
+    api(cookie, 'POST', '/api/budgets/copy', body)
+
+  await mkBudget(manager, {
+    category: 'Transport',
+    amount: 400,
+    month: copyFrom,
+  })
+  await mkBudget(manager, { category: 'Meals', amount: 250, month: copyFrom })
+  // Target already has Transport: the copy must skip it, not overwrite it.
+  await mkBudget(manager, { category: 'Transport', amount: 999, month: copyTo })
+
+  const copied = await copyBudget(manager, {
+    fromMonth: copyFrom,
+    toMonth: copyTo,
+  })
+  check(
+    'copy budgets creates the missing categories and skips existing ones',
+    copied.status === 200 &&
+      copied.json?.created === 1 &&
+      copied.json?.skipped === 1,
+    copied.json,
+  )
+
+  const copiedMeals = await api(
+    manager,
+    'GET',
+    `/api/budgets?month=${copyTo}&category=Meals`,
+  )
+  check(
+    'the copied budget keeps the source amount (250)',
+    copiedMeals.json?.total === 1 &&
+      copiedMeals.json?.items?.[0]?.amount === 250,
+    copiedMeals.json,
+  )
+
+  const copyOverwrote = await api(
+    manager,
+    'GET',
+    `/api/budgets?month=${copyTo}&category=Transport`,
+  )
+  check(
+    'the existing target budget was not overwritten (999)',
+    copyOverwrote.json?.items?.[0]?.amount === 999,
+    copyOverwrote.json,
+  )
+
+  const copyAgain = await copyBudget(manager, {
+    fromMonth: copyFrom,
+    toMonth: copyTo,
+  })
+  check(
+    'copying again creates nothing and skips both categories',
+    copyAgain.json?.created === 0 && copyAgain.json?.skipped === 2,
+    copyAgain.json,
+  )
+
+  for (const [name, body] of Object.entries({
+    'an invalid month': { fromMonth: '2026-13', toMonth: copyTo },
+    'a client-supplied departmentId': {
+      fromMonth: copyFrom,
+      toMonth: copyTo,
+      departmentId: 'x',
+    },
+  })) {
+    const bad = await copyBudget(manager, body)
+    check(`copy budgets rejects ${name} (400)`, bad.status === 400, bad.json)
+  }
+
+  const copyStaff = await copyBudget(staff1, {
+    fromMonth: copyFrom,
+    toMonth: copyTo,
+  })
+  const copyAdmin = await copyBudget(admin, {
+    fromMonth: copyFrom,
+    toMonth: copyTo,
+  })
+  check(
+    'copy budgets is manager-only (staff and admin 403)',
+    copyStaff.status === 403 && copyAdmin.status === 403,
+    [copyStaff.status, copyAdmin.status],
+  )
+
+  // Phase 7C: the rollover flag round-trips through the API.
+  const carryBudget = await mkBudget(manager, {
+    category: 'Events',
+    amount: 300,
+    month: copyTo,
+    carryOver: true,
+  })
+  check(
+    'a budget can opt into carry-over (201, carryOver true)',
+    carryBudget.status === 201 && carryBudget.json?.budget?.carryOver === true,
+    carryBudget.json,
+  )
+  const carryOff = await api(
+    manager,
+    'PATCH',
+    `/api/budgets/${carryBudget.json!.budget!.id}`,
+    { carryOver: false },
+  )
+  check(
+    'the rollover flag can be switched off again (200)',
+    carryOff.status === 200 && carryOff.json?.budget?.carryOver === false,
+    carryOff.json,
+  )
+
   const budgetAudits = await AuditLog.find({
     organizationId: orgV._id,
     entity: 'Budget',
@@ -545,6 +659,13 @@ async function main() {
       ),
     ),
     budgetAudits.map((a) => `${a.action}:${String(a.userId)}`),
+  )
+  check(
+    'each copied budget writes its own create audit (2 copies = >= 2 audits)',
+    budgetAudits.filter(
+      (a) => a.action === 'create' && String(a.userId) === String(mgrA._id),
+    ).length >= 2,
+    budgetAudits.filter((a) => a.action === 'create').length,
   )
 
   // ---------- Approvals ----------
@@ -686,9 +807,156 @@ async function main() {
     reason: 'Duplicate claim',
   })
   check(
-    'admins cannot review expenses (403 — only managers approve)',
-    adminReview.status === 403,
+    'an admin cannot review a staff expense (404 — staff go to their manager)',
+    adminReview.status === 404,
     adminReview.json,
+  )
+
+  // ---------- Phase 7B: managers record their own expenses ----------
+  const mgrExpense = await mkExpense(manager, {
+    category: 'Transport',
+    amount: 42,
+    date: day(-1),
+    description: 'G manager own transport',
+  })
+  check(
+    'a manager records their own expense (201: submitterRole manager, their department, pending)',
+    mgrExpense.status === 201 &&
+      mgrExpense.json?.expense?.submitterRole === 'manager' &&
+      mgrExpense.json?.expense?.departmentId === String(deptA._id) &&
+      mgrExpense.json?.expense?.userId === String(mgrA._id) &&
+      mgrExpense.json?.expense?.status === 'pending',
+    mgrExpense.json,
+  )
+  const mgrExpenseId = mgrExpense.json!.expense!.id
+
+  const injectSubmitter = await mkExpense(manager, {
+    category: 'Other',
+    amount: 5,
+    date: day(0),
+    submitterRole: 'staff',
+  })
+  check(
+    'an expense body cannot set submitterRole (400, rule 3)',
+    injectSubmitter.status === 400,
+    injectSubmitter.json,
+  )
+
+  const ownReview = await review(manager, mgrExpenseId, { action: 'approve' })
+  check(
+    'a manager cannot review their own expense (404)',
+    ownReview.status === 404,
+    ownReview.json,
+  )
+
+  // The queue pages are server-rendered, so their HTML is the cheapest way to
+  // prove each role's review queue contents.
+  const managerQueue = await api(manager, 'GET', '/approvals')
+  check(
+    "the manager's approvals page never lists their own expense",
+    managerQueue.status === 200 &&
+      !managerQueue.text.includes('G manager own transport'),
+    managerQueue.status,
+  )
+
+  const adminQueue = await api(admin, 'GET', '/approvals')
+  check(
+    "the admin's approvals page lists pending manager expenses",
+    adminQueue.status === 200 &&
+      adminQueue.text.includes('G manager own transport'),
+    adminQueue.status,
+  )
+
+  const adminApprovesMgr = await review(admin, mgrExpenseId, {
+    action: 'approve',
+  })
+  check(
+    'an admin approves a manager expense (200, approved, not the manager)',
+    adminApprovesMgr.status === 200 &&
+      adminApprovesMgr.json?.expense?.status === 'approved' &&
+      !!adminApprovesMgr.json?.expense?.reviewedBy &&
+      adminApprovesMgr.json?.expense?.reviewedBy !== String(mgrA._id),
+    adminApprovesMgr.json,
+  )
+
+  const staffExpenseByManager = await api(
+    manager,
+    'PATCH',
+    `/api/expenses/${e3Id}`,
+    {
+      amount: 26,
+    },
+  )
+  check(
+    "a manager cannot edit another staff member's expense (403)",
+    staffExpenseByManager.status === 403,
+    staffExpenseByManager.json,
+  )
+
+  const mgrDraft = await mkExpense(manager, {
+    category: 'Events',
+    amount: 10,
+    date: day(0),
+    description: 'H manager draft',
+  })
+  const mgrDraftId = mgrDraft.json!.expense!.id
+  const mgrEdit = await api(manager, 'PATCH', `/api/expenses/${mgrDraftId}`, {
+    amount: 12,
+  })
+  check(
+    'a manager edits their own pending expense (200)',
+    mgrEdit.status === 200 && mgrEdit.json?.expense?.amount === 12,
+    mgrEdit.json,
+  )
+
+  const mgrDelete = await api(manager, 'DELETE', `/api/expenses/${mgrDraftId}`)
+  check(
+    'a manager deletes their own pending expense (200)',
+    mgrDelete.status === 200 && mgrDelete.json?.success === true,
+    mgrDelete.json,
+  )
+
+  const adminPatch = await api(
+    admin,
+    'PATCH',
+    `/api/expenses/${mgrExpenseId}`,
+    {
+      amount: 50,
+    },
+  )
+  check(
+    'admins stay read-only for expenses (403)',
+    adminPatch.status === 403,
+    adminPatch.json,
+  )
+
+  // Phase 7B: approved manager expenses count toward the department budget.
+  const transportBudget = await mkBudget(manager, {
+    category: 'Transport',
+    amount: 500,
+    month: month(0),
+  })
+  check(
+    'manager creates a budget for the budget-counting check (201)',
+    transportBudget.status === 201,
+    transportBudget.json,
+  )
+
+  const { budgetVsActual } = await import('../services/report-service.ts')
+  const mgrBudgetRows = await budgetVsActual(
+    {
+      userId: String(mgrA._id),
+      organizationId: String(orgV._id),
+      departmentId: String(deptA._id),
+      role: 'manager',
+    },
+    month(0),
+  )
+  const transportRow = mgrBudgetRows.find((row) => row.category === 'Transport')
+  check(
+    "an approved manager expense counts toward the department's budget (spent 42)",
+    transportRow?.spent === 42,
+    transportRow,
   )
 
   const badAction = await review(manager, e3Id, { action: 'maybe' })
@@ -763,6 +1031,8 @@ async function main() {
     staffEmail: `staff-a1-${runId}@verify.test`,
     adminEmail: `admin-${runId}@verify.test`,
     uiMonth: month(3),
+    copyFrom: copyFrom,
+    copyTo: month(9),
     approvedDescription: 'E waiting approval',
     staffCookie: staff1,
   })
@@ -804,6 +1074,8 @@ async function uiChecks(opts: {
   staffEmail: string
   adminEmail: string
   uiMonth: string
+  copyFrom: string
+  copyTo: string
   approvedDescription: string
   staffCookie: string
 }) {
@@ -917,6 +1189,30 @@ async function uiChecks(opts: {
       rowGone = false
     }
     check('UI delete removes the budget row', rowGone)
+
+    // Phase 7C: copy a month's budgets through the UI.
+    await waitHydrated(manager, 'input[id=copy-from-month]')
+    await manager.fill('input[id=copy-from-month]', opts.copyFrom)
+    await manager.fill('input[id=copy-to-month]', opts.copyTo)
+    await manager.getByRole('button', { name: /copy budgets/i }).click()
+    let copyToast = true
+    try {
+      await manager.waitForFunction(
+        () => document.body.innerText.includes('Copied'),
+        undefined,
+        { timeout: 15_000 },
+      )
+    } catch {
+      copyToast = false
+    }
+    check(
+      'UI copy budgets reports how many were created',
+      copyToast &&
+        (await manager.locator('body').innerText()).includes(
+          `Copied 2 budgets to ${opts.copyTo}`,
+        ),
+      await manager.locator('body').innerText(),
+    )
 
     // Manager: approve a pending expense from the approvals queue.
     await manager.goto(`${BASE}/approvals`, { waitUntil: 'domcontentloaded' })

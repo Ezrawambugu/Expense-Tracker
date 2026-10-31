@@ -22,6 +22,8 @@ const LINKS: { href: string; label: string; roles: Role[] }[] = [
   { href: '/reports', label: 'Reports', roles: ['admin', 'manager'] },
   { href: '/admin/users', label: 'Users', roles: ['admin'] },
   { href: '/admin/departments', label: 'Departments', roles: ['admin'] },
+  { href: '/admin/audit', label: 'Audit', roles: ['admin'] },
+  { href: '/admin/settings', label: 'Settings', roles: ['admin'] },
 ]
 
 export function Nav({ role }: { role: Role }) {

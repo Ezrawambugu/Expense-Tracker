@@ -13,6 +13,9 @@ export interface IBudget {
   amount: number
   // Calendar month in `YYYY-MM` form.
   month: string
+  // Add the previous month's unspent approved amount to this month's available
+  // budget (Phase 7C). Default false, so nothing changes unless opted in.
+  carryOver: boolean
   createdAt: Date
 }
 
@@ -30,6 +33,7 @@ const BudgetSchema = new Schema({
   category: { type: String, enum: CATEGORIES, required: true },
   amount: { type: Number, required: true, min: 0 },
   month: { type: String, required: true, match: /^\d{4}-(0[1-9]|1[0-2])$/ },
+  carryOver: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
 })
 

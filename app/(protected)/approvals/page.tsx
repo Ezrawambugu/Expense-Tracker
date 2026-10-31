@@ -1,9 +1,10 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getSession } from '@/lib/session'
-import { listExpenses } from '@/services/expense-service'
+import { listReviewQueue } from '@/services/expense-service'
 import { ExpenseListQuerySchema } from '@/schemas/expense'
 import { userNames } from '@/services/directory-service'
+import { getOrganizationSettings } from '@/services/organization-service'
 import { formatAmount, formatDateOnly } from '@/lib/format'
 import { ReviewExpenseActions } from '@/components/review-expense-actions'
 
@@ -17,6 +18,7 @@ export default async function ApprovalsPage() {
   if (session.role === 'staff') redirect('/dashboard')
 
   // Pending expenses, oldest first so the queue is worked front to back.
+  // listReviewQueue only returns records this role may actually decide.
   const query = ExpenseListQuerySchema.parse({
     status: 'pending',
     sortBy: 'date',
@@ -24,7 +26,10 @@ export default async function ApprovalsPage() {
     pageSize: 100,
   })
 
-  const result = await listExpenses(session, query)
+  const [result, settings] = await Promise.all([
+    listReviewQueue(session, query),
+    getOrganizationSettings(session),
+  ])
   const names = await userNames(
     session,
     result.items.map((expense) => expense.userId),
@@ -36,8 +41,8 @@ export default async function ApprovalsPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Approvals</h1>
         <p className="mt-1 text-sm text-neutral-500">
           {session.role === 'manager'
-            ? 'Pending expenses in your department.'
-            : 'Pending expenses across your organization (read-only).'}
+            ? 'Pending staff expenses in your department. Your own expenses are reviewed by an admin.'
+            : 'Pending expenses submitted by managers in your organization. Staff expenses are reviewed by their department manager.'}
         </p>
         {session.role === 'manager' && !session.departmentId && (
           <p className="mt-1 text-xs text-neutral-500">
@@ -54,7 +59,7 @@ export default async function ApprovalsPage() {
                 Date
               </th>
               <th scope="col" className="px-4 py-3">
-                Staff
+                Submitted by
               </th>
               <th scope="col" className="px-4 py-3">
                 Category
@@ -77,7 +82,7 @@ export default async function ApprovalsPage() {
                   colSpan={6}
                   className="px-4 py-10 text-center text-neutral-500"
                 >
-                  Nothing is awaiting approval.
+                  Nothing is waiting for you to review.
                 </td>
               </tr>
             ) : (
@@ -89,20 +94,23 @@ export default async function ApprovalsPage() {
                   <td className="px-4 py-3 whitespace-nowrap">
                     {formatDateOnly(expense.date)}
                   </td>
-                  <td className="px-4 py-3">{names[expense.userId] ?? '—'}</td>
+                  <td className="px-4 py-3">
+                    {names[expense.userId] ?? '—'}
+                    {session.role === 'admin' && (
+                      <span className="ml-2 text-xs text-neutral-500">
+                        manager
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">{expense.category}</td>
                   <td className="px-4 py-3 text-neutral-600 dark:text-neutral-300">
                     {expense.description || '—'}
                   </td>
                   <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
-                    {formatAmount(expense.amount)}
+                    {formatAmount(expense.amount, settings.currency)}
                   </td>
                   <td className="px-4 py-3">
-                    {session.role === 'manager' ? (
-                      <ReviewExpenseActions expenseId={expense.id} />
-                    ) : (
-                      <span className="text-neutral-400">—</span>
-                    )}
+                    <ReviewExpenseActions expenseId={expense.id} />
                   </td>
                 </tr>
               ))

@@ -26,3 +26,43 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
+
+/* Print stylesheet (Phase 7C): Print > Save as PDF on /reports should give a
+   clean report — no navigation, filters or export links, and charts keep their
+   colours. */
+@media print {
+  header,
+  nav,
+  .print-hide {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  tr,
+  .recharts-responsive-container {
+    break-inside: avoid;
+  }
+
+  .recharts-surface {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  @page {
+    margin: 15mm;
+  }
+}

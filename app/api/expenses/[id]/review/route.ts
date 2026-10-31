@@ -8,9 +8,10 @@ import { reviewExpense } from '@/services/expense-service'
 type RouteContext = { params: Promise<{ id: string }> }
 
 // POST /api/expenses/:id/review — approve or reject a pending expense.
-// Managers only, and only within their own department (master prompt Phase 3).
+// Managers review staff expenses in their own department; admins review
+// manager expenses. Nobody reviews their own (Phase 7B, see reviewScope).
 export async function POST(req: NextRequest, ctx: RouteContext) {
-  const guard = await requireRole('manager')
+  const guard = await requireRole('manager', 'admin')
   if (!guard.ok) return guard.response
 
   const { id } = await ctx.params

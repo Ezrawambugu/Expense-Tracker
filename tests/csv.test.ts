@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { csvCell, toCsv } from '@/lib/csv'
-import { budgetToCsv, summaryToCsv } from '@/services/report-csv'
+import { budgetHeader, budgetToCsv, summaryToCsv } from '@/services/report-csv'
 import type {
   BudgetVsActualRow,
   SummaryReport,
@@ -54,14 +54,18 @@ const summary: SummaryReport = {
 
 describe('summaryToCsv', () => {
   it('includes both totals, every category and every department', () => {
-    const csv = summaryToCsv(summary)
+    const csv = summaryToCsv(summary, 'KES')
     expect(csv).toContain('Expense summary,2026-10')
-    expect(csv).toContain('Total approved,1400')
-    expect(csv).toContain('Awaiting approval,100')
-    expect(csv).toContain('Category,Approved')
+    expect(csv).toContain('Total approved (KES),1400')
+    expect(csv).toContain('Awaiting approval (KES),100')
+    expect(csv).toContain('Category,Approved (KES)')
     expect(csv).toContain('Transport,750')
-    expect(csv).toContain('Department,Approved')
+    expect(csv).toContain('Department,Approved (KES)')
     expect(csv).toContain('Operations,1400')
+  })
+
+  it('labels the headers with the organization currency (Phase 7D)', () => {
+    expect(summaryToCsv(summary, 'USD')).toContain('Total approved (USD),1400')
   })
 })
 
@@ -70,6 +74,8 @@ const budgetRow: BudgetVsActualRow = {
   departmentName: 'Operations',
   category: 'Meals',
   budget: 500,
+  carriedOver: 0,
+  available: 500,
   spent: 400,
   remaining: 100,
   percentUsed: 0.8,
@@ -77,17 +83,65 @@ const budgetRow: BudgetVsActualRow = {
   awaitingApproval: 0,
 }
 
+const unbudgetedRow: BudgetVsActualRow = {
+  departmentId: 'dept-1',
+  departmentName: 'Operations',
+  category: 'Events',
+  budget: null,
+  carriedOver: 0,
+  available: null,
+  spent: 90,
+  remaining: null,
+  percentUsed: null,
+  status: 'unbudgeted',
+  awaitingApproval: 0,
+}
+
 describe('budgetToCsv', () => {
   it('writes one row per budget with all columns', () => {
-    const csv = budgetToCsv([budgetRow])
+    const csv = budgetToCsv([budgetRow], 'KES')
+    expect(csv).toContain(budgetHeader('KES').join(','))
     expect(csv).toContain(
-      'Department,Category,Budget,Spent,Remaining,Percent used,Status,Awaiting approval',
+      'Department,Category,Budget (KES),Carried over (KES),Available (KES),Spent (KES),Remaining (KES),Percent used,Status,Awaiting approval (KES)',
     )
-    expect(csv).toContain('Operations,Meals,500,400,100,80,warning,0')
+    expect(csv).toContain('Operations,Meals,500,0,500,400,100,80,warning,0')
+  })
+
+  it('shows the carried-over amount and the available total (Phase 7C)', () => {
+    const csv = budgetToCsv(
+      [
+        {
+          ...budgetRow,
+          budget: 500,
+          carriedOver: 150,
+          available: 650,
+          spent: 500,
+          remaining: 150,
+          percentUsed: 0.769,
+        },
+      ],
+      'KES',
+    )
+    expect(csv).toContain('Operations,Meals,500,150,650,500,150,76.9,warning,0')
+  })
+
+  it('leaves the budget figures empty for an unbudgeted row', () => {
+    const csv = budgetToCsv([unbudgetedRow], 'KES')
+    // Budget, available, remaining and percent are blank; carry-over is 0.
+    expect(csv).toContain('Operations,Events,,0,,90,,,unbudgeted,0')
   })
 
   it('quotes department names containing commas', () => {
-    const csv = budgetToCsv([{ ...budgetRow, departmentName: 'Sales, North' }])
+    const csv = budgetToCsv(
+      [{ ...budgetRow, departmentName: 'Sales, North' }],
+      'KES',
+    )
     expect(csv).toContain('"Sales, North",Meals')
+  })
+
+  it('labels the headers with the organization currency (Phase 7D)', () => {
+    const csv = budgetToCsv([budgetRow], 'USD')
+    expect(csv).toContain('Budget (USD),Carried over (USD),Available (USD)')
+    expect(csv).not.toContain('(KES)')
   })
 })

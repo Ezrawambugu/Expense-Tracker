@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   BUDGET_THRESHOLDS,
+  WARNING_THRESHOLD_MAX,
+  WARNING_THRESHOLD_MIN,
   budgetStatus,
   percentUsed,
 } from '@/lib/budget-status'
@@ -38,5 +40,20 @@ describe('budgetStatus', () => {
   it('is exceeded above 100%', () => {
     expect(budgetStatus(1.0001)).toBe('exceeded')
     expect(budgetStatus(1.25)).toBe('exceeded')
+  })
+
+  it('takes a per-organization warning threshold (Phase 7C)', () => {
+    const thresholds = { warning: 0.6, exceeded: 1 }
+    expect(budgetStatus(0.59, thresholds)).toBe('ok')
+    expect(budgetStatus(0.6, thresholds)).toBe('warning')
+    expect(budgetStatus(0.8, thresholds)).toBe('warning')
+    expect(budgetStatus(1.01, thresholds)).toBe('exceeded')
+    // The default is unchanged when no thresholds are passed.
+    expect(budgetStatus(0.6)).toBe('ok')
+  })
+
+  it('limits the configurable warning line to 50–95%', () => {
+    expect(WARNING_THRESHOLD_MIN).toBe(0.5)
+    expect(WARNING_THRESHOLD_MAX).toBe(0.95)
   })
 })

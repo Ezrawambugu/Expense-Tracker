@@ -11,22 +11,30 @@ const base: Session = {
 }
 
 describe('reviewScope', () => {
-  it('limits managers to their department', () => {
-    expect(reviewScope(base)).toEqual({ departmentId: 'dept-1' })
+  it('limits managers to staff expenses in their own department', () => {
+    expect(reviewScope(base)).toEqual({
+      departmentId: 'dept-1',
+      submitterRole: 'staff',
+      userId: { $ne: 'user-1' },
+    })
   })
 
-  it('does not let admins approve — only managers review in Phase 3', () => {
-    expect(reviewScope({ ...base, role: 'admin' })).toBeNull()
+  it('lets a manager with no department review nothing', () => {
+    expect(reviewScope({ ...base, departmentId: null })).toEqual({
+      departmentId: { $in: [] },
+      submitterRole: 'staff',
+      userId: { $ne: 'user-1' },
+    })
+  })
+
+  it('gives admins manager expenses only, so staff expenses stay read-only', () => {
+    expect(reviewScope({ ...base, role: 'admin' })).toEqual({
+      submitterRole: 'manager',
+    })
   })
 
   it('never lets staff review, even if they reach the service', () => {
     expect(reviewScope({ ...base, role: 'staff' })).toBeNull()
-  })
-
-  it('does not fall back to department-less records for a manager with no department', () => {
-    const scope = reviewScope({ ...base, departmentId: null })
-    expect(scope).not.toEqual({ departmentId: null })
-    expect(scope).toEqual({ departmentId: { $in: [] } })
   })
 })
 

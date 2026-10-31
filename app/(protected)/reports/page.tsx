@@ -7,6 +7,7 @@ import {
   spendingTrends,
   summaryReport,
 } from '@/services/report-service'
+import { getOrganizationSettings } from '@/services/organization-service'
 import { currentMonth, formatAmount } from '@/lib/format'
 import { BudgetVsActualTable } from '@/components/budget-vs-actual-table'
 import { CategoryChart, TrendChart } from '@/components/report-charts'
@@ -44,9 +45,11 @@ function StatCard({
 function BreakdownTable({
   caption,
   rows,
+  currency,
 }: {
   caption: string
   rows: { name: string; total: number }[]
+  currency: string
 }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
@@ -69,7 +72,7 @@ function BreakdownTable({
             >
               <td className="px-4 py-2.5">{row.name}</td>
               <td className="px-4 py-2.5 text-right tabular-nums">
-                {formatAmount(row.total)}
+                {formatAmount(row.total, currency)}
               </td>
             </tr>
           ))}
@@ -97,11 +100,13 @@ export default async function ReportsPage({
     ? (parsed.data.month ?? currentMonth())
     : currentMonth()
 
-  const [summary, rows, trends] = await Promise.all([
+  const [summary, rows, trends, settings] = await Promise.all([
     summaryReport(session, month),
     budgetVsActual(session, month),
     spendingTrends(session),
+    getOrganizationSettings(session),
   ])
+  const warningPercent = Math.round(settings.warningThreshold * 100)
 
   const hasTrend = trends.some((point) => point.total > 0)
   const hasCategoryData = summary.byCategory.some((row) => row.total > 0)
@@ -117,8 +122,12 @@ export default async function ReportsPage({
         </p>
       </div>
 
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <form method="get" action="/reports" className="flex items-end gap-2">
+      <div className="print-hide flex flex-wrap items-end justify-between gap-3">
+        <form
+          method="get"
+          action="/reports"
+          className="print-hide flex items-end gap-2"
+        >
           <div>
             <label htmlFor="report-month" className="block text-xs font-medium">
               Month
@@ -139,18 +148,30 @@ export default async function ReportsPage({
           </button>
         </form>
 
-        <div className="flex gap-4 text-sm">
+        <div className="flex flex-wrap gap-4 text-sm">
           <a
-            href={`/api/reports/export?report=summary&month=${month}`}
+            href={`/api/reports/export?report=summary&format=csv&month=${month}`}
             className="underline"
           >
             Summary CSV
           </a>
           <a
-            href={`/api/reports/export?report=budget&month=${month}`}
+            href={`/api/reports/export?report=summary&format=xlsx&month=${month}`}
+            className="underline"
+          >
+            Summary XLSX
+          </a>
+          <a
+            href={`/api/reports/export?report=budget&format=csv&month=${month}`}
             className="underline"
           >
             Budget vs actual CSV
+          </a>
+          <a
+            href={`/api/reports/export?report=budget&format=xlsx&month=${month}`}
+            className="underline"
+          >
+            Budget vs actual XLSX
           </a>
         </div>
       </div>
@@ -164,12 +185,12 @@ export default async function ReportsPage({
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <StatCard
           label={`Total approved — ${month}`}
-          value={formatAmount(summary.totalApproved)}
+          value={formatAmount(summary.totalApproved, settings.currency)}
           hint="Approved expenses only."
         />
         <StatCard
           label={`Awaiting approval — ${month}`}
-          value={formatAmount(summary.awaitingApproval)}
+          value={formatAmount(summary.awaitingApproval, settings.currency)}
           hint="Pending expenses; never counted toward budgets."
         />
       </section>
@@ -178,17 +199,19 @@ export default async function ReportsPage({
         <div>
           <h2 className="text-lg font-semibold">Budget vs actual</h2>
           <p className="text-sm text-neutral-500">
-            {month} · below 80% is on track, 80–100% is a warning, above 100% is
-            exceeded.
+            {month} · below {warningPercent}% is on track, {warningPercent}–
+            100% is a warning, above 100% is exceeded. Approved spending in a
+            category without a budget is listed as “No budget”.
           </p>
         </div>
         <BudgetVsActualTable
           rows={rows}
+          currency={settings.currency}
           showDepartment={session.role === 'admin'}
           emptyMessage={`No budgets for ${month} yet.`}
         />
         {rows.length === 0 && session.role === 'manager' && (
-          <p className="text-sm">
+          <p className="print-hide text-sm">
             <Link href="/budgets" className="underline">
               Set budgets for {month}
             </Link>
@@ -203,6 +226,7 @@ export default async function ReportsPage({
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <BreakdownTable
             caption="Category"
+            currency={settings.currency}
             rows={summary.byCategory.map((row) => ({
               name: row.category,
               total: row.total,
@@ -210,6 +234,7 @@ export default async function ReportsPage({
           />
           <BreakdownTable
             caption="Department"
+            currency={settings.currency}
             rows={summary.byDepartment.map((row) => ({
               name: row.name,
               total: row.total,
@@ -222,7 +247,7 @@ export default async function ReportsPage({
         <div className="space-y-3">
           <h2 className="text-lg font-semibold">Monthly trend</h2>
           {hasTrend ? (
-            <TrendChart points={trends} />
+            <TrendChart points={trends} currency={settings.currency} />
           ) : (
             <p className="rounded-lg border border-dashed border-neutral-300 px-4 py-10 text-center text-sm text-neutral-500 dark:border-neutral-700">
               No approved spending in the last 6 months.
@@ -235,7 +260,10 @@ export default async function ReportsPage({
         <div className="space-y-3">
           <h2 className="text-lg font-semibold">Spending by category</h2>
           {hasCategoryData ? (
-            <CategoryChart data={summary.byCategory} />
+            <CategoryChart
+              data={summary.byCategory}
+              currency={settings.currency}
+            />
           ) : (
             <p className="rounded-lg border border-dashed border-neutral-300 px-4 py-10 text-center text-sm text-neutral-500 dark:border-neutral-700">
               No approved spending in {month}.

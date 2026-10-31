@@ -1,6 +1,9 @@
 // Edge middleware: guards PAGES only (redirects to /login when unauthenticated,
 // 403s role-restricted pages). API routes are NOT handled here — they do their
 // own authoritative session/role check in lib/guard.ts.
+//
+// Next 16 convention: this file is proxy.ts and the exported function is
+// `proxy` (middleware.ts / `middleware` is deprecated). Behaviour is unchanged.
 
 import { NextResponse, type NextRequest } from 'next/server'
 import { verifySession } from '@/lib/auth'
@@ -18,7 +21,7 @@ const ROLE_PATHS: { prefix: string; roles: string[] }[] = [
   { prefix: '/reports', roles: ['manager', 'admin'] },
 ]
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
 
   // Only guard pages here; let API routes handle themselves.

@@ -18,6 +18,11 @@ const fields = {
     .positive('Budget amount must be greater than 0')
     .finite(),
   month: BudgetMonthSchema,
+  // Optional rollover of the previous month's unspent amount (Phase 7C).
+  // Defaults to false in the service when omitted (pre-7C clients).
+  carryOver: z
+    .boolean({ error: 'Carry over must be true or false' })
+    .optional(),
 }
 
 // `.strict()` so clients cannot inject departmentId, organizationId, etc.
@@ -38,3 +43,12 @@ export const BudgetListQuerySchema = z.object({
   category: z.enum(CATEGORIES).optional(),
 })
 export type BudgetListQuery = z.infer<typeof BudgetListQuerySchema>
+
+// Phase 7C: copy every budget from one month into another (own department).
+export const CopyBudgetsSchema = z
+  .object({
+    fromMonth: BudgetMonthSchema,
+    toMonth: BudgetMonthSchema,
+  })
+  .strict()
+export type CopyBudgetsInput = z.infer<typeof CopyBudgetsSchema>

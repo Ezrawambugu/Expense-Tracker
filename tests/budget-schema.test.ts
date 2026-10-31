@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   BudgetListQuerySchema,
+  CopyBudgetsSchema,
   CreateBudgetSchema,
   UpdateBudgetSchema,
 } from '@/schemas/budget'
@@ -68,6 +69,55 @@ describe('CreateBudgetSchema', () => {
         }).success,
       ).toBe(false)
     }
+  })
+})
+
+describe('carryOver (Phase 7C)', () => {
+  it('accepts the rollover flag on create and update', () => {
+    expect(
+      CreateBudgetSchema.parse({
+        category: 'Meals',
+        amount: 100,
+        month: '2026-10',
+        carryOver: true,
+      }).carryOver,
+    ).toBe(true)
+    expect(UpdateBudgetSchema.parse({ carryOver: false })).toEqual({
+      carryOver: false,
+    })
+  })
+
+  it('rejects a non-boolean flag', () => {
+    expect(
+      CreateBudgetSchema.safeParse({
+        category: 'Meals',
+        amount: 100,
+        month: '2026-10',
+        carryOver: 'yes',
+      }).success,
+    ).toBe(false)
+  })
+})
+
+describe('CopyBudgetsSchema', () => {
+  it('accepts two valid months', () => {
+    expect(
+      CopyBudgetsSchema.parse({ fromMonth: '2026-09', toMonth: '2026-10' }),
+    ).toEqual({ fromMonth: '2026-09', toMonth: '2026-10' })
+  })
+
+  it('rejects invalid months and extra fields', () => {
+    expect(
+      CopyBudgetsSchema.safeParse({ fromMonth: '2026-13', toMonth: '2026-10' })
+        .success,
+    ).toBe(false)
+    expect(
+      CopyBudgetsSchema.safeParse({
+        fromMonth: '2026-09',
+        toMonth: '2026-10',
+        departmentId: 'dept-1',
+      }).success,
+    ).toBe(false)
   })
 })
 

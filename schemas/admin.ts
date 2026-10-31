@@ -54,6 +54,16 @@ export const UpdateUserSchema = z
   })
 export type UpdateUserInput = z.infer<typeof UpdateUserSchema>
 
+// Admin resets a user's password: send { password } to choose the temporary
+// password, or {} to have the server generate one. Either way the user must
+// change it at next sign-in. `.strict()` so nothing else can be injected.
+export const ResetPasswordSchema = z
+  .object({
+    password: passwordField.optional(),
+  })
+  .strict()
+export type ResetPasswordInput = z.infer<typeof ResetPasswordSchema>
+
 // Creating and renaming a department take the same shape.
 export const DepartmentNameSchema = z
   .object({

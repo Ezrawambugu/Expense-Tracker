@@ -17,16 +17,21 @@ vi.mock('@/lib/db', () => ({ connectDB: vi.fn(async () => null) }))
 vi.mock('@/models/expense', () => ({ Expense: { aggregate: vi.fn() } }))
 vi.mock('@/models/budget', () => ({ Budget: { find: vi.fn() } }))
 vi.mock('@/models/department', () => ({ Department: { find: vi.fn() } }))
+vi.mock('@/models/organization', () => ({
+  Organization: { findOne: vi.fn() },
+}))
 
 const { Expense } = await import('@/models/expense')
 const { Budget } = await import('@/models/budget')
 const { Department } = await import('@/models/department')
+const { Organization } = await import('@/models/organization')
 const { summaryReport, budgetVsActual, budgetAlerts, spendingTrends } =
   await import('@/services/report-service')
 
 const aggregate = Expense.aggregate as unknown as Mock
 const budgetFind = Budget.find as unknown as Mock
 const departmentFind = Department.find as unknown as Mock
+const organizationFind = Organization.findOne as unknown as Mock
 
 const ORG = '64b000000000000000000001'
 const DEPT = '64b000000000000000000002'
@@ -70,7 +75,10 @@ beforeEach(() => {
   aggregate.mockReset()
   budgetFind.mockReset()
   departmentFind.mockReset()
+  organizationFind.mockReset()
   departmentFind.mockReturnValue(query([]))
+  // Organizations without the Phase 7C field fall back to the 80% default.
+  organizationFind.mockReturnValue(query(null))
 })
 
 afterEach(() => {
@@ -299,11 +307,197 @@ describe('budgetVsActual', () => {
     )
   })
 
-  it('returns nothing (and skips the aggregation) when there are no budgets', async () => {
-    budgetFind.mockReturnValue(query([]))
+  it('adds an unbudgeted row for approved spending with no budget (Phase 7C)', async () => {
+    budgetFind.mockReturnValue(query(budgets))
+    aggregate.mockResolvedValue([
+      {
+        _id: { departmentId: DEPT, category: 'Transport', status: 'approved' },
+        total: 750,
+      },
+      {
+        _id: { departmentId: DEPT, category: 'Meals', status: 'approved' },
+        total: 420,
+      },
+      {
+        _id: { departmentId: DEPT, category: 'Events', status: 'approved' },
+        total: 90,
+      },
+      // Pending-only unbudgeted spending produces no row.
+      {
+        _id: { departmentId: DEPT, category: 'Utilities', status: 'pending' },
+        total: 30,
+      },
+    ])
+    departmentFind.mockReturnValue(query([{ _id: DEPT, name: 'Operations' }]))
 
-    expect(await budgetVsActual(admin, MONTH)).toEqual([])
-    expect(aggregate).not.toHaveBeenCalled()
+    const rows = await budgetVsActual(manager, MONTH)
+
+    expect(rows).toHaveLength(3)
+    const events = rows.find((row) => row.category === 'Events')!
+    expect(events).toMatchObject({
+      budget: null,
+      carriedOver: 0,
+      available: null,
+      spent: 90,
+      remaining: null,
+      percentUsed: null,
+      status: 'unbudgeted',
+      awaitingApproval: 0,
+    })
+    expect(rows.some((row) => row.category === 'Utilities')).toBe(false)
+  })
+
+  it('returns only unbudgeted rows when there are no budgets at all', async () => {
+    budgetFind.mockReturnValue(query([]))
+    aggregate.mockResolvedValue([
+      {
+        _id: { departmentId: DEPT, category: 'Events', status: 'approved' },
+        total: 90,
+      },
+    ])
+    departmentFind.mockReturnValue(query([{ _id: DEPT, name: 'Operations' }]))
+
+    const rows = await budgetVsActual(manager, MONTH)
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({
+      category: 'Events',
+      spent: 90,
+      status: 'unbudgeted',
+      budget: null,
+    })
+  })
+
+  it('carries the previous month’s unspent amount into opted-in budgets (Phase 7C)', async () => {
+    budgetFind
+      .mockReturnValueOnce(
+        query([
+          {
+            _id: 'b1',
+            departmentId: DEPT,
+            category: 'Transport',
+            amount: 1000,
+            month: MONTH,
+            carryOver: true,
+          },
+        ]),
+      )
+      .mockReturnValueOnce(
+        query([
+          {
+            _id: 'p1',
+            departmentId: DEPT,
+            category: 'Transport',
+            amount: 800,
+            month: '2026-09',
+          },
+        ]),
+      )
+    aggregate
+      .mockResolvedValueOnce([
+        {
+          _id: {
+            departmentId: DEPT,
+            category: 'Transport',
+            status: 'approved',
+          },
+          total: 750,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          _id: {
+            departmentId: DEPT,
+            category: 'Transport',
+            status: 'approved',
+          },
+          total: 500,
+        },
+      ])
+    departmentFind.mockReturnValue(query([{ _id: DEPT, name: 'Operations' }]))
+
+    const rows = await budgetVsActual(manager, MONTH)
+
+    expect(rows[0]).toMatchObject({
+      budget: 1000,
+      carriedOver: 300,
+      available: 1300,
+      spent: 750,
+      remaining: 550,
+      status: 'ok',
+    })
+    expect(rows[0].percentUsed).toBeCloseTo(750 / 1300, 10)
+  })
+
+  it('carries nothing when the previous month was overspent', async () => {
+    budgetFind
+      .mockReturnValueOnce(
+        query([
+          {
+            _id: 'b1',
+            departmentId: DEPT,
+            category: 'Transport',
+            amount: 1000,
+            month: MONTH,
+            carryOver: true,
+          },
+        ]),
+      )
+      .mockReturnValueOnce(
+        query([
+          {
+            _id: 'p1',
+            departmentId: DEPT,
+            category: 'Transport',
+            amount: 400,
+            month: '2026-09',
+          },
+        ]),
+      )
+    aggregate.mockResolvedValueOnce([]).mockResolvedValueOnce([
+      {
+        _id: {
+          departmentId: DEPT,
+          category: 'Transport',
+          status: 'approved',
+        },
+        total: 500,
+      },
+    ])
+    departmentFind.mockReturnValue(query([{ _id: DEPT, name: 'Operations' }]))
+
+    const rows = await budgetVsActual(manager, MONTH)
+
+    expect(rows[0].carriedOver).toBe(0)
+    expect(rows[0].available).toBe(1000)
+  })
+
+  it('uses the organization’s own warning threshold (Phase 7C)', async () => {
+    organizationFind.mockReturnValue(query({ warningThreshold: 0.6 }))
+    budgetFind.mockReturnValue(
+      query([
+        {
+          _id: 'b2',
+          departmentId: DEPT,
+          category: 'Meals',
+          amount: 500,
+          month: MONTH,
+        },
+      ]),
+    )
+    aggregate.mockResolvedValue([
+      {
+        _id: { departmentId: DEPT, category: 'Meals', status: 'approved' },
+        total: 320,
+      },
+    ])
+    departmentFind.mockReturnValue(query([{ _id: DEPT, name: 'Operations' }]))
+
+    const rows = await budgetVsActual(manager, MONTH)
+
+    // 64% is a warning at 60%, but would be ok at the 80% default.
+    expect(rows[0].percentUsed).toBeCloseTo(0.64)
+    expect(rows[0].status).toBe('warning')
   })
 
   it('always filters by the organization (rule 1)', async () => {
@@ -372,6 +566,50 @@ describe('budgetAlerts', () => {
 
     expect(alerts.map((row) => row.category)).toEqual(['Supplies', 'Meals'])
     expect(alerts.map((row) => row.status)).toEqual(['exceeded', 'warning'])
+  })
+
+  it('lists unbudgeted rows after exceeded and warning rows (Phase 7C)', async () => {
+    budgetFind.mockReturnValue(
+      query([
+        {
+          _id: 'b3',
+          departmentId: DEPT,
+          category: 'Supplies',
+          amount: 200,
+          month: MONTH,
+        },
+        {
+          _id: 'b2',
+          departmentId: DEPT,
+          category: 'Meals',
+          amount: 500,
+          month: MONTH,
+        },
+      ]),
+    )
+    aggregate.mockResolvedValue([
+      {
+        _id: { departmentId: DEPT, category: 'Supplies', status: 'approved' },
+        total: 250,
+      },
+      {
+        _id: { departmentId: DEPT, category: 'Meals', status: 'approved' },
+        total: 450,
+      },
+      {
+        _id: { departmentId: DEPT, category: 'Events', status: 'approved' },
+        total: 5000,
+      },
+    ])
+    departmentFind.mockReturnValue(query([{ _id: DEPT, name: 'Operations' }]))
+
+    const alerts = await budgetAlerts(manager, MONTH)
+
+    expect(alerts.map((row) => `${row.category}:${row.status}`)).toEqual([
+      'Supplies:exceeded',
+      'Meals:warning',
+      'Events:unbudgeted',
+    ])
   })
 })
 

@@ -2,19 +2,23 @@ import { formatAmount, formatPercent } from '@/lib/format'
 import type { BudgetVsActualRow } from '@/services/report-service'
 
 // Rule 6 thresholds are reflected here only as colours; the values themselves
-// come from the service via the config in lib/budget-status.ts.
+// come from the service via lib/budget-status.ts (or the organization's own
+// warning threshold since Phase 7C).
 const STATUS_STYLES: Record<BudgetVsActualRow['status'], string> = {
   ok: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300',
   warning:
     'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300',
   exceeded:
     'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300',
+  unbudgeted:
+    'border-dashed border-neutral-300 bg-transparent text-neutral-600 dark:border-neutral-600 dark:text-neutral-300',
 }
 
 const STATUS_LABEL: Record<BudgetVsActualRow['status'], string> = {
   ok: 'OK',
   warning: 'Warning',
   exceeded: 'Exceeded',
+  unbudgeted: 'No budget',
 }
 
 export function BudgetStatusBadge({
@@ -34,20 +38,27 @@ export function BudgetStatusBadge({
 // Server-rendered budget vs actual table. The column set adapts to the
 // audience: admins see every department, everyone sees the awaiting-approval
 // column because pending expenses never count toward spending (rule 5).
+// Unbudgeted rows (approved spending without a budget) show dashes for the
+// budget figures (Phase 7C).
 export function BudgetVsActualTable({
   rows,
+  currency,
   showDepartment = false,
   emptyMessage = 'No budgets for this month yet.',
 }: {
   rows: BudgetVsActualRow[]
+  currency: string
   showDepartment?: boolean
   emptyMessage?: string
 }) {
-  const colSpan = (showDepartment ? 1 : 0) + 7
+  const colSpan = (showDepartment ? 1 : 0) + 9
+
+  const money = (value: number | null) =>
+    value === null ? '—' : formatAmount(value, currency)
 
   return (
     <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
-      <table className="w-full min-w-[40rem] text-left text-sm">
+      <table className="w-full min-w-[48rem] text-left text-sm">
         <thead className="border-b border-neutral-200 text-xs tracking-wide text-neutral-500 uppercase dark:border-neutral-800">
           <tr>
             {showDepartment && (
@@ -60,6 +71,12 @@ export function BudgetVsActualTable({
             </th>
             <th scope="col" className="px-4 py-3 text-right">
               Budget
+            </th>
+            <th scope="col" className="px-4 py-3 text-right">
+              Carried over
+            </th>
+            <th scope="col" className="px-4 py-3 text-right">
+              Available
             </th>
             <th scope="col" className="px-4 py-3 text-right">
               Spent
@@ -101,22 +118,32 @@ export function BudgetVsActualTable({
                 )}
                 <td className="px-4 py-3">{row.category}</td>
                 <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
-                  {formatAmount(row.budget)}
+                  {money(row.budget)}
                 </td>
                 <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
-                  {formatAmount(row.spent)}
+                  {row.carriedOver
+                    ? formatAmount(row.carriedOver, currency)
+                    : '—'}
                 </td>
                 <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
-                  {formatAmount(row.remaining)}
+                  {money(row.available)}
                 </td>
                 <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
-                  {formatPercent(row.percentUsed)}
+                  {formatAmount(row.spent, currency)}
+                </td>
+                <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
+                  {money(row.remaining)}
+                </td>
+                <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
+                  {row.percentUsed === null
+                    ? '—'
+                    : formatPercent(row.percentUsed)}
                 </td>
                 <td className="px-4 py-3">
                   <BudgetStatusBadge status={row.status} />
                 </td>
                 <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
-                  {formatAmount(row.awaitingApproval)}
+                  {formatAmount(row.awaitingApproval, currency)}
                 </td>
               </tr>
             ))

@@ -4,9 +4,11 @@ import { getSession } from '@/lib/session'
 import { listBudgets } from '@/services/budget-service'
 import { BudgetListQuerySchema } from '@/schemas/budget'
 import { departmentNames } from '@/services/directory-service'
+import { getOrganizationSettings } from '@/services/organization-service'
 import { formatAmount, currentMonth } from '@/lib/format'
 import { CATEGORIES } from '@/lib/constants'
 import { BudgetForm } from '@/components/budget-form'
+import { CopyBudgetsForm } from '@/components/copy-budgets-form'
 import { DeleteBudgetButton } from '@/components/delete-budget-button'
 
 // Reads the session cookie and search params on every request.
@@ -41,7 +43,10 @@ export default async function BudgetsPage({
   // Invalid query strings fall back to defaults instead of erroring the page.
   const parsed = BudgetListQuerySchema.safeParse(rawQuery)
   const query = parsed.success ? parsed.data : {}
-  const result = await listBudgets(session, query)
+  const [result, settings] = await Promise.all([
+    listBudgets(session, query),
+    getOrganizationSettings(session),
+  ])
 
   const canEdit = session.role === 'manager' && !!session.departmentId
   const names =
@@ -76,6 +81,17 @@ export default async function BudgetsPage({
             idPrefix="new-budget"
             initial={{ month: query.month ?? currentMonth() }}
           />
+        </section>
+      )}
+
+      {canEdit && (
+        <section className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
+          <h2 className="text-sm font-semibold">Copy budgets from a month</h2>
+          <p className="mt-1 mb-3 text-xs text-neutral-500">
+            Start a new month from an existing one instead of retyping every
+            category.
+          </p>
+          <CopyBudgetsForm />
         </section>
       )}
 
@@ -192,7 +208,12 @@ export default async function BudgetsPage({
                     </td>
                   )}
                   <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
-                    {formatAmount(budget.amount)}
+                    {formatAmount(budget.amount, settings.currency)}
+                    {budget.carryOver && (
+                      <span className="mt-1 block text-xs text-neutral-500">
+                        carries over
+                      </span>
+                    )}
                   </td>
                   {canEdit && (
                     <td className="px-4 py-3 whitespace-nowrap">

@@ -14,21 +14,21 @@ describe('expenseScope', () => {
     expect(expenseScope(base)).toEqual({ userId: 'user-1' })
   })
 
-  it('limits managers to their department', () => {
+  it('gives managers their department plus their own records', () => {
     expect(expenseScope({ ...base, role: 'manager' })).toEqual({
-      departmentId: 'dept-1',
+      $or: [{ departmentId: 'dept-1' }, { userId: 'user-1' }],
     })
   })
 
-  it('does not fall back to department-less records for a manager with no department', () => {
+  it('keeps only a department-less manager’s own records', () => {
     const scope = expenseScope({
       ...base,
       role: 'manager',
       departmentId: null,
     })
     // Must not mean "every expense whose author has no department".
+    expect(scope).toEqual({ userId: 'user-1' })
     expect(scope).not.toEqual({ departmentId: null })
-    expect(scope.departmentId).toEqual({ $in: [] })
   })
 
   it('gives admins the whole organization (org filter is applied by the service)', () => {

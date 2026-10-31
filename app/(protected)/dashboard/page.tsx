@@ -4,6 +4,7 @@ import { getSession } from '@/lib/session'
 import { connectDB } from '@/lib/db'
 import { User } from '@/models/user'
 import { budgetAlerts, budgetVsActual } from '@/services/report-service'
+import { getOrganizationSettings } from '@/services/organization-service'
 import { currentMonth, formatAmount, formatPercent } from '@/lib/format'
 import {
   BudgetStatusBadge,
@@ -27,10 +28,12 @@ export default async function DashboardPage() {
   const month = currentMonth()
   // Managers get the alert list (Phase 4 output c); staff get a read-only
   // view of their own department's budget status (roles section).
-  const alerts =
-    session.role === 'manager' ? await budgetAlerts(session, month) : []
-  const budgetRows =
-    session.role === 'staff' ? await budgetVsActual(session, month) : []
+  const [alerts, budgetRows, settings] = await Promise.all([
+    session.role === 'manager' ? budgetAlerts(session, month) : [],
+    session.role === 'staff' ? budgetVsActual(session, month) : [],
+    getOrganizationSettings(session),
+  ])
+  const currency = settings.currency
   const hasExceeded = alerts.some((row) => row.status === 'exceeded')
 
   const greeting = user?.name ? `Welcome, ${user.name}` : 'Welcome'
@@ -77,8 +80,9 @@ export default async function DashboardPage() {
                 <BudgetStatusBadge status={row.status} />
                 <span className="font-medium">{row.category}</span>
                 <span className="tabular-nums">
-                  {formatPercent(row.percentUsed)} used (
-                  {formatAmount(row.spent)} of {formatAmount(row.budget)})
+                  {row.percentUsed === null
+                    ? `${formatAmount(row.spent, currency)} spent with no budget`
+                    : `${formatPercent(row.percentUsed)} used (${formatAmount(row.spent, currency)} of ${formatAmount(row.available ?? 0, currency)})`}
                 </span>
               </li>
             ))}
@@ -108,6 +112,7 @@ export default async function DashboardPage() {
           </div>
           <BudgetVsActualTable
             rows={budgetRows}
+            currency={currency}
             emptyMessage={`No budgets for ${month} yet.`}
           />
         </section>
