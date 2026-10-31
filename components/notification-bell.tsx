@@ -100,7 +100,12 @@ export function NotificationBell({
       return
     }
     const data = (await res.json()) as { updatedCount?: number }
-    setItems((prev) => prev.map((it) => ({ ...it, readAt: it.readAt ?? new Date().toISOString() })))
+    setItems((prev) =>
+      prev.map((it) => ({
+        ...it,
+        readAt: it.readAt ?? new Date().toISOString(),
+      })),
+    )
     setUnread(0)
     toast(`Marked ${data.updatedCount ?? 0} notifications as read`)
   }
@@ -122,7 +127,7 @@ export function NotificationBell({
       >
         {unread > 0 && (
           <span
-            className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white"
+            className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white"
             aria-label={`${unread} unread`}
           >
             {unread > 9 ? '9+' : unread}

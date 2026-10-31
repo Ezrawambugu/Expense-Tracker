@@ -163,8 +163,18 @@ async function main() {
     })
 
   await mkUser(null, 'Ada Admin', `admin-${runId}@verify.test`, 'admin')
-  const manager = await mkUser(dept._id, 'Mona Manager', `mgr-${runId}@verify.test`, 'manager')
-  const staff = await mkUser(dept._id, 'Sam Staff', `staff-${runId}@verify.test`, 'staff')
+  const manager = await mkUser(
+    dept._id,
+    'Mona Manager',
+    `mgr-${runId}@verify.test`,
+    'manager',
+  )
+  const staff = await mkUser(
+    dept._id,
+    'Sam Staff',
+    `staff-${runId}@verify.test`,
+    'staff',
+  )
   await mkUser(
     deptOther._id,
     'Mia Manager',
@@ -210,21 +220,35 @@ async function main() {
     date: TODAY,
     description: 'Approved expense',
   })
-  check('staff creates a pending expense (201)', expenseA.status === 201, expenseA.status)
+  check(
+    'staff creates a pending expense (201)',
+    expenseA.status === 201,
+    expenseA.status,
+  )
   const expenseAId = expenseA.json?.expense?.id
   check('expense id is present', typeof expenseAId === 'string')
 
-  const approveA = await api(managerCookie, 'POST', `/api/expenses/${expenseAId}/review`, {
-    action: 'approve',
-    reason: 'Looks good',
-  })
+  const approveA = await api(
+    managerCookie,
+    'POST',
+    `/api/expenses/${expenseAId}/review`,
+    {
+      action: 'approve',
+      reason: 'Looks good',
+    },
+  )
   check('manager approves a staff expense (200)', approveA.status === 200)
   check('approved response has the expense', Boolean(approveA.json?.expense))
 
   const staffAfterApprove = await inbox(staffCookie)
-  const approvedNotif = staffAfterApprove.items.find((n) => n.type === 'expense_approved')
+  const approvedNotif = staffAfterApprove.items.find(
+    (n) => n.type === 'expense_approved',
+  )
   check('staff gets an expense_approved notification', Boolean(approvedNotif))
-  check('approved notification links to the expense list', approvedNotif?.link === '/expenses')
+  check(
+    'approved notification links to the expense list',
+    approvedNotif?.link === '/expenses',
+  )
 
   // 600/1000 = 60% — the budget must not have notified yet.
   const managerBeforeWarning = await inbox(managerCookie)
@@ -262,7 +286,10 @@ async function main() {
     date: TODAY,
     description: 'Manager expense for notification',
   })
-  check('manager creates a pending expense (201)', managerExpense.status === 201)
+  check(
+    'manager creates a pending expense (201)',
+    managerExpense.status === 201,
+  )
   check(
     'manager expense is marked as a manager submission',
     managerExpense.json?.expense?.submitterRole === 'manager',
@@ -272,7 +299,10 @@ async function main() {
   const pendingForManager = adminNotifs.items.find(
     (n) => n.type === 'expense_pending' && n.link === '/approvals',
   )
-  check('admin is told a manager expense awaits review', Boolean(pendingForManager))
+  check(
+    'admin is told a manager expense awaits review',
+    Boolean(pendingForManager),
+  )
 
   // The department manager must not be told about the manager's own expense:
   // only admins review manager submissions.
@@ -302,16 +332,26 @@ async function main() {
   check('third pending expense created (201)', expenseC.status === 201)
   const expenseCId = expenseC.json?.expense?.id
 
-  const rejectC = await api(managerCookie, 'POST', `/api/expenses/${expenseCId}/review`, {
-    action: 'reject',
-    reason: 'Need receipts',
-  })
+  const rejectC = await api(
+    managerCookie,
+    'POST',
+    `/api/expenses/${expenseCId}/review`,
+    {
+      action: 'reject',
+      reason: 'Need receipts',
+    },
+  )
   check('manager rejects an expense (200)', rejectC.status === 200)
 
   const staffAfterReject = await inbox(staffCookie)
-  const rejectedNotif = staffAfterReject.items.find((n) => n.type === 'expense_rejected')
+  const rejectedNotif = staffAfterReject.items.find(
+    (n) => n.type === 'expense_rejected',
+  )
   check('staff gets an expense_rejected notification', Boolean(rejectedNotif))
-  check('rejected notification links to the expense list', rejectedNotif?.link === '/expenses')
+  check(
+    'rejected notification links to the expense list',
+    rejectedNotif?.link === '/expenses',
+  )
   check(
     'staff has both approved and rejected notifications',
     staffAfterReject.items.some((n) => n.type === 'expense_approved') &&
@@ -328,18 +368,38 @@ async function main() {
     date: TODAY,
     description: 'Push budget over the warning line',
   })
-  check('expense that crosses the warning line created (201)', expenseD.status === 201)
+  check(
+    'expense that crosses the warning line created (201)',
+    expenseD.status === 201,
+  )
   const expenseDId = expenseD.json?.expense?.id
 
-  const approveD = await api(managerCookie, 'POST', `/api/expenses/${expenseDId}/review`, {
-    action: 'approve',
-  })
-  check('approval crossing the warning line succeeds (200)', approveD.status === 200)
+  const approveD = await api(
+    managerCookie,
+    'POST',
+    `/api/expenses/${expenseDId}/review`,
+    {
+      action: 'approve',
+    },
+  )
+  check(
+    'approval crossing the warning line succeeds (200)',
+    approveD.status === 200,
+  )
 
   const managerAfterWarning = await inbox(managerCookie)
-  const warnings = managerAfterWarning.items.filter((n) => n.type === 'budget_warning')
-  check('department manager gets exactly one budget_warning', warnings.length === 1, warnings.length)
-  check('budget_warning links to the budgets page', warnings[0]?.link === '/budgets')
+  const warnings = managerAfterWarning.items.filter(
+    (n) => n.type === 'budget_warning',
+  )
+  check(
+    'department manager gets exactly one budget_warning',
+    warnings.length === 1,
+    warnings.length,
+  )
+  check(
+    'budget_warning links to the budgets page',
+    warnings[0]?.link === '/budgets',
+  )
 
   // A second small approval (950 -> 1000) is still a warning: no second notice.
   const expenseD2 = await api(staffCookie, 'POST', '/api/expenses', {
@@ -359,7 +419,8 @@ async function main() {
   const managerAfterSecond = await inbox(managerCookie)
   check(
     'staying in the warning band does not notify again',
-    managerAfterSecond.items.filter((n) => n.type === 'budget_warning').length === 1,
+    managerAfterSecond.items.filter((n) => n.type === 'budget_warning')
+      .length === 1,
   )
 
   // ---------- D2. Budget exceeded notification ----------
@@ -377,16 +438,21 @@ async function main() {
     `/api/expenses/${expenseE.json?.expense?.id}/review`,
     { action: 'approve' },
   )
-  check('approval crossing the exceeded line succeeds (200)', approveE.status === 200)
+  check(
+    'approval crossing the exceeded line succeeds (200)',
+    approveE.status === 200,
+  )
 
   const managerAfterExceeded = await inbox(managerCookie)
   check(
     'department manager gets exactly one budget_exceeded',
-    managerAfterExceeded.items.filter((n) => n.type === 'budget_exceeded').length === 1,
+    managerAfterExceeded.items.filter((n) => n.type === 'budget_exceeded')
+      .length === 1,
   )
   check(
     'the warning notice is not duplicated when exceeded',
-    managerAfterExceeded.items.filter((n) => n.type === 'budget_warning').length === 1,
+    managerAfterExceeded.items.filter((n) => n.type === 'budget_warning')
+      .length === 1,
   )
 
   // Another department's manager sees none of this budget's notices.
@@ -407,8 +473,13 @@ async function main() {
     unreadBefore === beforeRead.items.filter((n) => n.readAt === null).length,
   )
 
-  const toRead = beforeRead.items.filter((n) => n.readAt === null).slice(0, 1).map((n) => n.id)
-  const markRead = await api(staffCookie, 'POST', '/api/notifications', { ids: toRead })
+  const toRead = beforeRead.items
+    .filter((n) => n.readAt === null)
+    .slice(0, 1)
+    .map((n) => n.id)
+  const markRead = await api(staffCookie, 'POST', '/api/notifications', {
+    ids: toRead,
+  })
   check('mark one as read returns 200', markRead.status === 200)
   check('mark one reports one updated row', markRead.json?.updatedCount === 1)
 
@@ -420,18 +491,32 @@ async function main() {
   )
 
   // Another user cannot mark this staff member's notification as read.
-  const otherMarks = await api(managerCookie, 'POST', '/api/notifications', { ids: toRead })
-  check('another user marking someone else’s notification changes nothing', otherMarks.json?.updatedCount === 0)
+  const otherMarks = await api(managerCookie, 'POST', '/api/notifications', {
+    ids: toRead,
+  })
+  check(
+    'another user marking someone else’s notification changes nothing',
+    otherMarks.json?.updatedCount === 0,
+  )
 
   // ---------- F. Mark all as read ----------
   console.log('\n--- F. Mark all as read ---')
 
-  const markAll = await api(staffCookie, 'POST', '/api/notifications', { all: true })
+  const markAll = await api(staffCookie, 'POST', '/api/notifications', {
+    all: true,
+  })
   check('mark all as read returns 200', markAll.status === 200)
-  check('mark all returns an updated count', typeof markAll.json?.updatedCount === 'number')
+  check(
+    'mark all returns an updated count',
+    typeof markAll.json?.updatedCount === 'number',
+  )
 
   const afterAll = await inbox(staffCookie)
-  check('no unread notifications after mark all', afterAll.unreadCount === 0, afterAll.unreadCount)
+  check(
+    'no unread notifications after mark all',
+    afterAll.unreadCount === 0,
+    afterAll.unreadCount,
+  )
 
   // ---------- G. Scoping ----------
   console.log('\n--- G. Notification scoping ---')
@@ -453,9 +538,14 @@ async function main() {
 
   // Staff cannot read another user's notification ids.
   const managerIds = managerFinal.items.map((n) => n.id)
-  const staffReadsManager = await api(staffCookie, 'POST', '/api/notifications', {
-    ids: managerIds.slice(0, 1),
-  })
+  const staffReadsManager = await api(
+    staffCookie,
+    'POST',
+    '/api/notifications',
+    {
+      ids: managerIds.slice(0, 1),
+    },
+  )
   check(
     'staff cannot mark a manager notification as read',
     staffReadsManager.json?.updatedCount === 0,
