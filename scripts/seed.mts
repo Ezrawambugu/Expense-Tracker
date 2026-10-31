@@ -305,13 +305,14 @@ const expensesByOffset: Line[][] = [
   ],
 ]
 
-// Calendar month key for an offset back from the current month.
+// Calendar month key for an offset back from the current month. Uses the local
+// calendar (like lib/format's currentMonth) so the seed always lands in the
+// month the pages display, including either side of a UTC day rollover.
 function monthKey(offset: number): string {
   const now = new Date()
-  const d = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - offset, 1),
-  )
-  return d.toISOString().slice(0, 7)
+  const d = new Date(now.getFullYear(), now.getMonth() - offset, 1)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`
 }
 
 // UTC-midnight date for a day within a `YYYY-MM` month. For the current
@@ -320,7 +321,7 @@ function monthKey(offset: number): string {
 function dateFor(month: string, day: number): Date {
   const [year, mon] = month.split('-').map(Number)
   const clamped =
-    month === monthKey(0) ? Math.min(day, new Date().getUTCDate()) : day
+    month === monthKey(0) ? Math.min(day, new Date().getDate()) : day
   return new Date(Date.UTC(year, mon - 1, clamped))
 }
 

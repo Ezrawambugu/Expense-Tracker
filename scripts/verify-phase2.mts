@@ -110,9 +110,13 @@ async function login(email: string, password: string): Promise<string> {
   return cookie
 }
 
+// Calendar-day fixtures use the local calendar, matching lib/format's
+// todayDateOnly() and the date pickers. A UTC-based helper disagrees with the
+// app for a few hours each day on servers east of UTC.
 function day(offset: number): string {
   const d = new Date(Date.now() + offset * 86_400_000)
-  return d.toISOString().slice(0, 10)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
 async function dbExpensesByOrg(orgId: unknown) {
