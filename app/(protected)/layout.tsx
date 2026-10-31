@@ -1,7 +1,9 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { User } from 'lucide-react'
 import { getSession } from '@/lib/session'
-import { Nav } from '@/components/nav'
+import { Nav, AdminNav } from '@/components/nav'
+import { MobileTabBar } from '@/components/mobile-tab-bar'
 import { LogoutButton } from '@/components/logout-button'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { ToastProvider } from '@/components/toast'
@@ -37,22 +39,41 @@ export default async function ProtectedLayout({
   return (
     <ToastProvider>
       <div className="flex min-h-full flex-col">
-        <header className="border-b border-neutral-200 dark:border-neutral-800">
-          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-            <div className="flex flex-wrap items-center gap-4">
-              <span className="text-sm font-semibold">Expense Tracker</span>
-              <Nav role={session.role} />
-            </div>
-            <div className="flex items-center gap-3 text-sm">
+        <a
+          href="#main"
+          className="bg-accent-fill text-on-accent rounded-control sr-only px-4 py-2 font-medium focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50"
+        >
+          Skip to content
+        </a>
+
+        {/* Sticky translucent glass bar: the only chrome that floats above the
+            content, with a hairline instead of a heavy shadow. */}
+        <header className="glass-bar sticky top-0 z-40">
+          <div className="mx-auto flex h-14 max-w-[1100px] items-center gap-3 px-4 sm:px-6">
+            <Link
+              href="/dashboard"
+              className="focus-visible:ring-accent/35 rounded-control flex shrink-0 items-center gap-2 focus-visible:ring-[3px] focus-visible:outline-none"
+            >
+              <span className="bg-accent-fill text-on-accent shadow-card grid h-8 w-8 place-items-center rounded-[10px]">
+                <span className="text-subheadline font-bold">ET</span>
+              </span>
+              <span className="text-headline hidden sm:inline">
+                Expense Tracker
+              </span>
+            </Link>
+
+            <Nav role={session.role} />
+
+            <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
               <Link
                 href="/account"
-                className="rounded-md px-2 py-1.5 text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                aria-label="Account"
+                title="Account"
+                className="text-muted hover:text-foreground hover:bg-surface-elevated duration-hover focus-visible:ring-accent/35 rounded-control ease-apple text-footnote flex h-9 items-center gap-1.5 px-2 font-medium transition-colors focus-visible:ring-[3px] focus-visible:outline-none"
               >
-                Account
+                <User aria-hidden="true" size={18} strokeWidth={1.75} />
+                <span className="hidden lg:inline">Account</span>
               </Link>
-              <span className="text-neutral-500 capitalize">
-                {session.role}
-              </span>
               <ThemeToggle />
               <NotificationBell
                 unreadCount={unreadResult}
@@ -61,10 +82,20 @@ export default async function ProtectedLayout({
               <LogoutButton />
             </div>
           </div>
+
+          <div className="mx-auto hidden max-w-[1100px] px-4 sm:px-6 md:block">
+            <AdminNav role={session.role} />
+          </div>
         </header>
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
+
+        <main
+          id="main"
+          className="animate-rise-in mx-auto w-full max-w-[1100px] flex-1 px-4 pt-7 pb-32 sm:px-6 md:pt-9 md:pb-14"
+        >
           {children}
         </main>
+
+        <MobileTabBar role={session.role} />
       </div>
     </ToastProvider>
   )

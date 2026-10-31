@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/session'
 import { ChangePasswordForm } from '@/components/change-password-form'
+import { PageHeader } from '@/components/ui/page-header'
+import { Card } from '@/components/ui/card'
 
 // Reads the session cookie on every request — blocking route (cacheComponents).
 export const instant = false
@@ -11,15 +13,15 @@ export default async function AccountPage() {
   if (!session) redirect('/login')
 
   return (
-    <div className="mx-auto max-w-md space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Account</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Change your password. Your current password is required.
-        </p>
-      </div>
+    <div className="mx-auto max-w-xl space-y-7">
+      <PageHeader
+        title="Account"
+        description="Change your password. Your current password is required."
+      />
 
-      <ChangePasswordForm />
+      <Card className="p-5 sm:p-6">
+        <ChangePasswordForm />
+      </Card>
     </div>
   )
 }

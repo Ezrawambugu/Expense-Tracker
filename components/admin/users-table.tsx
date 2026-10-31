@@ -191,7 +191,9 @@ function UserRow({
           </Badge>
         </TD>
         <TD label="Actions">
-          <div className="flex flex-nowrap items-center justify-end gap-2 whitespace-nowrap">
+          {/* Wraps instead of forcing the table wider than its container, so
+              the action buttons stay reachable at every width. */}
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <Button
               type="button"
               onClick={save}

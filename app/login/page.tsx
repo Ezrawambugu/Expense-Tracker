@@ -4,6 +4,8 @@ import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { LoginSchema } from '@/schemas/auth'
+import { Button } from '@/components/ui/button'
+import { Field, FormError, Input } from '@/components/ui/field'
 
 type FieldErrors = Record<string, string[]>
 
@@ -74,86 +76,79 @@ function LoginForm() {
 
   return (
     <main className="flex min-h-full items-center justify-center px-4 py-12">
-      <div className="w-full max-w-sm space-y-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
-          <p className="mt-1 text-sm text-neutral-500">
-            Expense Tracker — Management Information System
-          </p>
+      <div className="animate-rise-in w-full max-w-[26rem]">
+        <div className="mb-6 flex flex-col items-center gap-3 text-center">
+          <span className="bg-accent-fill text-on-accent shadow-floating grid h-12 w-12 place-items-center rounded-[14px]">
+            <span className="text-headline font-bold">ET</span>
+          </span>
+          <div>
+            <p className="text-caption text-muted font-semibold tracking-widest uppercase">
+              Management Information System
+            </p>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} noValidate className="space-y-4">
-          {reasonMessage && (
-            <p
-              role="status"
-              className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
-            >
-              {reasonMessage}
-            </p>
-          )}
-          {formError && (
-            <p
-              role="alert"
-              className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
-            >
-              {formError}
-            </p>
-          )}
+        <div className="glass shadow-floating rounded-sheet p-7 sm:p-8">
+          <h1 className="text-title text-foreground text-center">Sign in</h1>
+          <p className="text-subheadline text-muted mt-1 text-center">
+            Expense Tracker for your organization
+          </p>
 
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              aria-invalid={!!fieldErrors.email}
-              className="mt-1 w-full rounded-md border border-neutral-300 bg-transparent px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none dark:border-neutral-700"
-            />
-            {fieldErrors.email && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                {fieldErrors.email[0]}
+          <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-4">
+            {reasonMessage && (
+              <p
+                role="status"
+                className="bg-warning-tint text-warning-text text-subheadline rounded-control p-3"
+              >
+                {reasonMessage}
               </p>
             )}
-          </div>
+            {formError && <FormError message={formError} />}
 
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium">
-              Password
-            </label>
-            <input
+            <Field id="email" label="Email" error={fieldErrors.email?.[0]}>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                aria-invalid={!!fieldErrors.email}
+                aria-describedby={fieldErrors.email ? 'email-error' : undefined}
+              />
+            </Field>
+
+            <Field
               id="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              aria-invalid={!!fieldErrors.password}
-              className="mt-1 w-full rounded-md border border-neutral-300 bg-transparent px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none dark:border-neutral-700"
-            />
-            {fieldErrors.password && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                {fieldErrors.password[0]}
-              </p>
-            )}
-          </div>
+              label="Password"
+              error={fieldErrors.password?.[0]}
+            >
+              <Input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                aria-invalid={!!fieldErrors.password}
+                aria-describedby={
+                  fieldErrors.password ? 'password-error' : undefined
+                }
+              />
+            </Field>
 
-          <button
-            type="submit"
-            disabled={busy}
-            className="w-full rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
-          >
-            {busy ? 'Signing in…' : 'Sign in'}
-          </button>
-        </form>
+            <Button type="submit" disabled={busy} className="w-full">
+              {busy ? 'Signing in…' : 'Sign in'}
+            </Button>
+          </form>
+        </div>
 
-        <p className="text-center text-sm text-neutral-500">
+        <p className="text-subheadline text-muted mt-6 text-center">
           No account yet?{' '}
-          <Link href="/register" className="font-medium underline">
+          <Link
+            href="/register"
+            className="text-accent-text font-medium hover:underline"
+          >
             Create an organization
           </Link>
         </p>

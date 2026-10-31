@@ -3,6 +3,8 @@ import Link from 'next/link'
 import { getSession } from '@/lib/session'
 import { getExpense } from '@/services/expense-service'
 import { ExpenseForm } from '@/components/expense-form'
+import { PageHeader } from '@/components/ui/page-header'
+import { Card } from '@/components/ui/card'
 
 export const instant = false
 
@@ -26,16 +28,24 @@ export default async function EditExpensePage({
 
   if (expense.status !== 'pending') {
     return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Expense cannot be edited
-        </h1>
-        <p className="text-sm text-neutral-500">
-          Only pending expenses can be edited. This one is{' '}
-          <span className="font-medium capitalize">{expense.status}</span>.
-        </p>
-        <p className="text-sm">
-          <Link href="/expenses" className="underline">
+      <div className="mx-auto max-w-xl space-y-7">
+        <PageHeader
+          title="Expense cannot be edited"
+          description={
+            <>
+              Only pending expenses can be edited. This one is{' '}
+              <span className="text-foreground font-medium capitalize">
+                {expense.status}
+              </span>
+              .
+            </>
+          }
+        />
+        <p className="text-subheadline">
+          <Link
+            href="/expenses"
+            className="text-accent-text font-medium hover:underline"
+          >
             Back to expenses
           </Link>
         </p>
@@ -44,27 +54,30 @@ export default async function EditExpensePage({
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Edit expense</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Changes are saved as pending.
-        </p>
-      </div>
-
-      <ExpenseForm
-        mode="edit"
-        expenseId={expense.id}
-        initial={{
-          category: expense.category,
-          amount: String(expense.amount),
-          date: expense.date.slice(0, 10),
-          description: expense.description,
-        }}
+    <div className="mx-auto max-w-xl space-y-7">
+      <PageHeader
+        title="Edit expense"
+        description="Changes are saved as pending."
       />
 
-      <p className="text-sm">
-        <Link href="/expenses" className="underline">
+      <Card className="p-5 sm:p-6">
+        <ExpenseForm
+          mode="edit"
+          expenseId={expense.id}
+          initial={{
+            category: expense.category,
+            amount: String(expense.amount),
+            date: expense.date.slice(0, 10),
+            description: expense.description,
+          }}
+        />
+      </Card>
+
+      <p className="text-subheadline">
+        <Link
+          href="/expenses"
+          className="text-accent-text font-medium hover:underline"
+        >
           Back to expenses
         </Link>
       </p>

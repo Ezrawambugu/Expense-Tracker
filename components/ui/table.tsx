@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { EmptyState } from '@/components/ui/empty-state'
 
 // Phase 8B table system: solid surface, rounded container, no vertical lines,
 // hairline row separators, hover highlight, sticky header, right-aligned
@@ -16,7 +17,7 @@ export function TableContainer({
     <div
       className={`rounded-card bg-surface shadow-card overflow-hidden ${className}`}
     >
-      <div className="overflow-x-auto sm:overflow-visible">{children}</div>
+      <div className="overflow-x-auto">{children}</div>
     </div>
   )
 }
@@ -32,6 +33,35 @@ export function Table({
     <table className={`table-stack w-full text-left ${className}`}>
       {children}
     </table>
+  )
+}
+
+// Friendly empty row: keeps the table semantics while replacing a bare string
+// with a glyph, a sentence and at most one action.
+export function TableEmpty({
+  colSpan,
+  icon,
+  title,
+  description,
+  action,
+}: {
+  colSpan: number
+  icon?: ReactNode
+  title: ReactNode
+  description?: ReactNode
+  action?: ReactNode
+}) {
+  return (
+    <tr>
+      <td colSpan={colSpan} className="px-4">
+        <EmptyState
+          icon={icon}
+          title={title}
+          description={description}
+          action={action}
+        />
+      </td>
+    </tr>
   )
 }
 

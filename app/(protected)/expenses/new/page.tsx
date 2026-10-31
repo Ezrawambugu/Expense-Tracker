@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getSession } from '@/lib/session'
 import { ExpenseForm } from '@/components/expense-form'
+import { PageHeader } from '@/components/ui/page-header'
+import { Card } from '@/components/ui/card'
 
 export const instant = false
 
@@ -13,20 +15,25 @@ export default async function NewExpensePage() {
   if (session.role === 'admin') redirect('/expenses')
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">New expense</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          {session.role === 'manager'
+    <div className="mx-auto max-w-xl space-y-7">
+      <PageHeader
+        title="New expense"
+        description={
+          session.role === 'manager'
             ? 'Recorded as pending until an admin reviews it.'
-            : 'Recorded as pending until a manager reviews it.'}
-        </p>
-      </div>
+            : 'Recorded as pending until a manager reviews it.'
+        }
+      />
 
-      <ExpenseForm mode="create" />
+      <Card className="p-5 sm:p-6">
+        <ExpenseForm mode="create" />
+      </Card>
 
-      <p className="text-sm">
-        <Link href="/expenses" className="underline">
+      <p className="text-subheadline">
+        <Link
+          href="/expenses"
+          className="text-accent-text font-medium hover:underline"
+        >
           Back to expenses
         </Link>
       </p>

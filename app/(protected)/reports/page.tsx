@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { ChartColumn, Clock, ChartLine, ArrowDownToLine } from 'lucide-react'
 import { getSession } from '@/lib/session'
 import { ReportQuerySchema } from '@/schemas/report'
 import {
@@ -11,6 +12,14 @@ import { getOrganizationSettings } from '@/services/organization-service'
 import { currentMonth, formatAmount } from '@/lib/format'
 import { BudgetVsActualTable } from '@/components/budget-vs-actual-table'
 import { CategoryChart, TrendChart } from '@/components/report-charts'
+import { PageHeader, SectionHeader } from '@/components/ui/page-header'
+import { StatCard } from '@/components/ui/stat-card'
+import { Card } from '@/components/ui/card'
+import { Field, Input } from '@/components/ui/field'
+import { Button } from '@/components/ui/button'
+import { Icon } from '@/components/ui/icon'
+import { Table, TableContainer, TD, TH, THead, TR } from '@/components/ui/table'
+import { EmptyState } from '@/components/ui/empty-state'
 
 // Reads the session cookie and search params on every request.
 export const instant = false
@@ -19,27 +28,6 @@ type SearchParams = Record<string, string | string[] | undefined>
 
 function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value
-}
-
-const controlClass =
-  'mt-1 w-full rounded-md border border-neutral-300 bg-transparent px-2 py-1.5 text-sm focus:border-neutral-500 focus:outline-none dark:border-neutral-700'
-
-function StatCard({
-  label,
-  value,
-  hint,
-}: {
-  label: string
-  value: string
-  hint: string
-}) {
-  return (
-    <div className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
-      <p className="text-xs font-medium text-neutral-500">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
-      <p className="mt-1 text-xs text-neutral-500">{hint}</p>
-    </div>
-  )
 }
 
 function BreakdownTable({
@@ -52,33 +40,26 @@ function BreakdownTable({
   currency: string
 }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
-      <table className="w-full text-left text-sm">
-        <thead className="border-b border-neutral-200 text-xs tracking-wide text-neutral-500 uppercase dark:border-neutral-800">
-          <tr>
-            <th scope="col" className="px-4 py-3">
-              {caption}
-            </th>
-            <th scope="col" className="px-4 py-3 text-right">
-              Approved
-            </th>
-          </tr>
-        </thead>
+    <TableContainer>
+      <Table>
+        <THead>
+          <TR className="hover:bg-transparent">
+            <TH>{caption}</TH>
+            <TH numeric>Approved</TH>
+          </TR>
+        </THead>
         <tbody>
           {rows.map((row) => (
-            <tr
-              key={row.name}
-              className="border-b border-neutral-100 last:border-0 dark:border-neutral-900"
-            >
-              <td className="px-4 py-2.5">{row.name}</td>
-              <td className="px-4 py-2.5 text-right tabular-nums">
+            <TR key={row.name}>
+              <TD label={caption}>{row.name}</TD>
+              <TD label="Approved" numeric>
                 {formatAmount(row.total, currency)}
-              </td>
-            </tr>
+              </TD>
+            </TR>
           ))}
         </tbody>
-      </table>
-    </div>
+      </Table>
+    </TableContainer>
   )
 }
 
@@ -111,73 +92,65 @@ export default async function ReportsPage({
   const hasTrend = trends.some((point) => point.total > 0)
   const hasCategoryData = summary.byCategory.some((row) => row.total > 0)
 
+  const exports = [
+    { href: `summary&format=csv&month=${month}`, label: 'Summary CSV' },
+    { href: `summary&format=xlsx&month=${month}`, label: 'Summary XLSX' },
+    { href: `budget&format=csv&month=${month}`, label: 'Budget vs actual CSV' },
+    {
+      href: `budget&format=xlsx&month=${month}`,
+      label: 'Budget vs actual XLSX',
+    },
+  ]
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Reports</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          {session.role === 'admin'
+    <div className="space-y-7">
+      <PageHeader
+        secondary={month}
+        title="Reports"
+        description={
+          session.role === 'admin'
             ? 'Approved spending, budget usage and trends across your organization.'
-            : 'Approved spending, budget usage and trends for your department.'}
-        </p>
-      </div>
+            : 'Approved spending, budget usage and trends for your department.'
+        }
+      />
 
-      <div className="print-hide flex flex-wrap items-end justify-between gap-3">
-        <form
-          method="get"
-          action="/reports"
-          className="print-hide flex items-end gap-2"
-        >
-          <div>
-            <label htmlFor="report-month" className="block text-xs font-medium">
-              Month
-            </label>
-            <input
-              id="report-month"
-              name="month"
-              type="month"
-              defaultValue={month}
-              className={`${controlClass} w-44`}
-            />
+      <Card className="print-hide p-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <form
+            method="get"
+            action="/reports"
+            className="print-hide flex items-end gap-2"
+          >
+            <Field id="report-month" label="Month" className="w-44">
+              <Input
+                id="report-month"
+                name="month"
+                type="month"
+                defaultValue={month}
+              />
+            </Field>
+            <Button type="submit" variant="tinted">
+              Apply
+            </Button>
+          </form>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {exports.map((item) => (
+              <a
+                key={item.label}
+                href={`/api/reports/export?report=${item.href}`}
+                className="bg-accent-tint text-accent-text text-footnote inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-medium hover:brightness-[0.97]"
+              >
+                <Icon icon={ArrowDownToLine} size={14} />
+                {item.label}
+              </a>
+            ))}
           </div>
-          <button
-            type="submit"
-            className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
-          >
-            Apply
-          </button>
-        </form>
-
-        <div className="flex flex-wrap gap-4 text-sm">
-          <a
-            href={`/api/reports/export?report=summary&format=csv&month=${month}`}
-            className="underline"
-          >
-            Summary CSV
-          </a>
-          <a
-            href={`/api/reports/export?report=summary&format=xlsx&month=${month}`}
-            className="underline"
-          >
-            Summary XLSX
-          </a>
-          <a
-            href={`/api/reports/export?report=budget&format=csv&month=${month}`}
-            className="underline"
-          >
-            Budget vs actual CSV
-          </a>
-          <a
-            href={`/api/reports/export?report=budget&format=xlsx&month=${month}`}
-            className="underline"
-          >
-            Budget vs actual XLSX
-          </a>
         </div>
-      </div>
+      </Card>
 
       {monthInvalid && (
-        <p className="text-sm text-red-600 dark:text-red-400">
+        <p className="text-exceeded-text text-footnote">
           That month was not valid, so the report shows {month}.
         </p>
       )}
@@ -187,23 +160,21 @@ export default async function ReportsPage({
           label={`Total approved — ${month}`}
           value={formatAmount(summary.totalApproved, settings.currency)}
           hint="Approved expenses only."
+          icon={<Icon icon={ChartColumn} size={16} />}
         />
         <StatCard
           label={`Awaiting approval — ${month}`}
           value={formatAmount(summary.awaitingApproval, settings.currency)}
           hint="Pending expenses; never counted toward budgets."
+          icon={<Icon icon={Clock} size={16} />}
         />
       </section>
 
       <section className="space-y-3">
-        <div>
-          <h2 className="text-lg font-semibold">Budget vs actual</h2>
-          <p className="text-sm text-neutral-500">
-            {month} · below {warningPercent}% is on track, {warningPercent}–
-            100% is a warning, above 100% is exceeded. Approved spending in a
-            category without a budget is listed as “No budget”.
-          </p>
-        </div>
+        <SectionHeader
+          title="Budget vs actual"
+          description={`${month} · below ${warningPercent}% is on track, ${warningPercent}–100% is a warning, above 100% is exceeded. Approved spending in a category without a budget is listed as “No budget”.`}
+        />
         <BudgetVsActualTable
           rows={rows}
           currency={settings.currency}
@@ -211,8 +182,11 @@ export default async function ReportsPage({
           emptyMessage={`No budgets for ${month} yet.`}
         />
         {rows.length === 0 && session.role === 'manager' && (
-          <p className="print-hide text-sm">
-            <Link href="/budgets" className="underline">
+          <p className="print-hide text-subheadline">
+            <Link
+              href="/budgets"
+              className="text-accent-text font-medium hover:underline"
+            >
               Set budgets for {month}
             </Link>
           </p>
@@ -220,9 +194,7 @@ export default async function ReportsPage({
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">
-          Approved spending breakdown — {month}
-        </h2>
+        <SectionHeader title={`Approved spending breakdown — ${month}`} />
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <BreakdownTable
             caption="Category"
@@ -243,36 +215,45 @@ export default async function ReportsPage({
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold">Monthly trend</h2>
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card className="p-5">
+          <SectionHeader
+            title="Monthly trend"
+            description="Approved expenses, last 6 months."
+          />
           {hasTrend ? (
-            <TrendChart points={trends} currency={settings.currency} />
+            <div className="mt-4">
+              <TrendChart points={trends} currency={settings.currency} />
+            </div>
           ) : (
-            <p className="rounded-lg border border-dashed border-neutral-300 px-4 py-10 text-center text-sm text-neutral-500 dark:border-neutral-700">
-              No approved spending in the last 6 months.
-            </p>
-          )}
-          <p className="text-xs text-neutral-500">
-            Approved expenses, last 6 months.
-          </p>
-        </div>
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold">Spending by category</h2>
-          {hasCategoryData ? (
-            <CategoryChart
-              data={summary.byCategory}
-              currency={settings.currency}
+            <EmptyState
+              icon={<Icon icon={ChartLine} size={20} />}
+              title="No approved spending in the last 6 months."
+              description="Approved expenses will build this trend line."
             />
-          ) : (
-            <p className="rounded-lg border border-dashed border-neutral-300 px-4 py-10 text-center text-sm text-neutral-500 dark:border-neutral-700">
-              No approved spending in {month}.
-            </p>
           )}
-          <p className="text-xs text-neutral-500">
-            Approved expenses in {month}.
-          </p>
-        </div>
+        </Card>
+
+        <Card className="p-5">
+          <SectionHeader
+            title="Spending by category"
+            description={`Approved expenses in ${month}.`}
+          />
+          {hasCategoryData ? (
+            <div className="mt-4">
+              <CategoryChart
+                data={summary.byCategory}
+                currency={settings.currency}
+              />
+            </div>
+          ) : (
+            <EmptyState
+              icon={<Icon icon={ChartColumn} size={20} />}
+              title={`No approved spending in ${month}.`}
+              description="Approve a few expenses to see the breakdown."
+            />
+          )}
+        </Card>
       </section>
     </div>
   )

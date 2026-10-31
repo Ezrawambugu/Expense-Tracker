@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { RegisterSchema } from '@/schemas/auth'
+import { Button } from '@/components/ui/button'
+import { Field, FormError, Input } from '@/components/ui/field'
 
 type FieldErrors = Record<string, string[]>
 
@@ -57,127 +59,108 @@ export default function RegisterPage() {
 
   return (
     <main className="flex min-h-full items-center justify-center px-4 py-12">
-      <div className="w-full max-w-sm space-y-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Create an organization
-          </h1>
-          <p className="mt-1 text-sm text-neutral-500">
-            You&apos;ll be the first admin user.
+      <div className="animate-rise-in w-full max-w-[26rem]">
+        <div className="mb-6 flex flex-col items-center gap-3 text-center">
+          <span className="bg-accent-fill text-on-accent shadow-floating grid h-12 w-12 place-items-center rounded-[14px]">
+            <span className="text-headline font-bold">ET</span>
+          </span>
+          <p className="text-caption text-muted font-semibold tracking-widest uppercase">
+            Management Information System
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} noValidate className="space-y-4">
-          {formError && (
-            <p
-              role="alert"
-              className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
-            >
-              {formError}
-            </p>
-          )}
+        <div className="glass shadow-floating rounded-sheet p-7 sm:p-8">
+          <h1 className="text-title text-foreground text-center">
+            Create an organization
+          </h1>
+          <p className="text-subheadline text-muted mt-1 text-center">
+            You&apos;ll be the first admin user.
+          </p>
 
-          <div>
-            <label
-              htmlFor="organizationName"
-              className="block text-sm font-medium"
-            >
-              Organization name
-            </label>
-            <input
+          <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-4">
+            {formError && <FormError message={formError} />}
+
+            <Field
               id="organizationName"
-              type="text"
-              required
-              value={organizationName}
-              onChange={(e) => setOrganizationName(e.target.value)}
-              aria-invalid={!!fieldErrors.organizationName}
-              className="mt-1 w-full rounded-md border border-neutral-300 bg-transparent px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none dark:border-neutral-700"
-            />
-            {fieldErrors.organizationName && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                {fieldErrors.organizationName[0]}
-              </p>
-            )}
-          </div>
+              label="Organization name"
+              error={fieldErrors.organizationName?.[0]}
+            >
+              <Input
+                id="organizationName"
+                type="text"
+                required
+                value={organizationName}
+                onChange={(e) => setOrganizationName(e.target.value)}
+                aria-invalid={!!fieldErrors.organizationName}
+                aria-describedby={
+                  fieldErrors.organizationName
+                    ? 'organizationName-error'
+                    : undefined
+                }
+              />
+            </Field>
 
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium">
-              Your name
-            </label>
-            <input
-              id="name"
-              type="text"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              aria-invalid={!!fieldErrors.name}
-              className="mt-1 w-full rounded-md border border-neutral-300 bg-transparent px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none dark:border-neutral-700"
-            />
-            {fieldErrors.name && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                {fieldErrors.name[0]}
-              </p>
-            )}
-          </div>
+            <Field id="name" label="Your name" error={fieldErrors.name?.[0]}>
+              <Input
+                id="name"
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                aria-invalid={!!fieldErrors.name}
+                aria-describedby={fieldErrors.name ? 'name-error' : undefined}
+              />
+            </Field>
 
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium">
-              Email
-            </label>
-            <input
+            <Field
               id="email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              aria-invalid={!!fieldErrors.email}
-              className="mt-1 w-full rounded-md border border-neutral-300 bg-transparent px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none dark:border-neutral-700"
-            />
-            {fieldErrors.email && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                {fieldErrors.email[0]}
-              </p>
-            )}
-            <p className="mt-1 text-xs text-neutral-500">
-              An email address belongs to one organization only. If it is
-              already in use, ask that organization&apos;s admin for an account.
-            </p>
-          </div>
+              label="Email"
+              hint="An email address belongs to one organization only."
+              error={fieldErrors.email?.[0]}
+            >
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                aria-invalid={!!fieldErrors.email}
+                aria-describedby={fieldErrors.email ? 'email-error' : undefined}
+              />
+            </Field>
 
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium">
-              Password
-            </label>
-            <input
+            <Field
               id="password"
-              type="password"
-              autoComplete="new-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              aria-invalid={!!fieldErrors.password}
-              className="mt-1 w-full rounded-md border border-neutral-300 bg-transparent px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none dark:border-neutral-700"
-            />
-            {fieldErrors.password && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                {fieldErrors.password[0]}
-              </p>
-            )}
-          </div>
+              label="Password"
+              error={fieldErrors.password?.[0]}
+            >
+              <Input
+                id="password"
+                type="password"
+                autoComplete="new-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                aria-invalid={!!fieldErrors.password}
+                aria-describedby={
+                  fieldErrors.password ? 'password-error' : undefined
+                }
+              />
+            </Field>
 
-          <button
-            type="submit"
-            disabled={busy}
-            className="w-full rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
-          >
-            {busy ? 'Creating…' : 'Create account'}
-          </button>
-        </form>
+            <Button type="submit" disabled={busy} className="w-full">
+              {busy ? 'Creating…' : 'Create account'}
+            </Button>
+          </form>
+        </div>
 
-        <p className="text-center text-sm text-neutral-500">
+        <p className="text-subheadline text-muted mt-6 text-center">
           Already have an account?{' '}
-          <Link href="/login" className="font-medium underline">
+          <Link
+            href="/login"
+            className="text-accent-text font-medium hover:underline"
+          >
             Sign in
           </Link>
         </p>

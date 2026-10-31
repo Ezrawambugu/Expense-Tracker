@@ -3,6 +3,7 @@ import { getSession } from '@/lib/session'
 import { listDepartments } from '@/services/admin-service'
 import { DepartmentForm } from '@/components/admin/department-form'
 import { DepartmentsTable } from '@/components/admin/departments-table'
+import { PageHeader } from '@/components/ui/page-header'
 
 // Reads the session cookie on every request — blocking route (cacheComponents).
 export const instant = false
@@ -18,14 +19,10 @@ export default async function AdminDepartmentsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Departments</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Departments group users, budgets and expenses. Archive one to retire
-          it while keeping its name in historical reports; a permanent delete is
-          only allowed once nothing references it.
-        </p>
-      </div>
+      <PageHeader
+        title="Departments"
+        description="Departments group users, budgets and expenses. Archive one to retire it while keeping its name in historical reports; a permanent delete is only allowed once nothing references it."
+      />
 
       <DepartmentForm />
 

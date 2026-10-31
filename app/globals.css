@@ -69,6 +69,9 @@
   --glass-blur: 24px;
   --glass-blur-subtle: 16px;
   --glass-blur-strong: 32px;
+  /* Navigation bar: more opaque than a floating card so content never
+     competes with the labels sitting on it. */
+  --glass-bar-bg: rgba(255, 255, 255, 0.72);
   /* Solid stand-in used when backdrop-filter is unsupported and whenever
      prefers-reduced-transparency is set. */
   --glass-fallback: #f7f7fb;
@@ -126,6 +129,7 @@
   --glass-border: rgba(255, 255, 255, 0.12);
   --glass-highlight: rgba(255, 255, 255, 0.14);
   --glass-shadow: rgba(0, 0, 0, 0.5);
+  --glass-bar-bg: rgba(28, 28, 30, 0.72);
   --glass-fallback: #1c1c1e;
 }
 
@@ -335,6 +339,15 @@
   backdrop-filter: blur(var(--glass-blur-strong)) saturate(180%);
 }
 
+/* The top navigation bar: full-bleed, blurrier than a card but flatter — a
+   single hairline underneath instead of a floating shadow. */
+@utility glass-bar {
+  background-color: var(--glass-bar-bg);
+  border-bottom: 1px solid var(--separator);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+}
+
 /* Solid fallback where backdrop-filter is unsupported (the transparency is
    still survived by the tint, but the blur effect is not). */
 @supports not (
@@ -342,7 +355,8 @@
 ) {
   .glass,
   .glass-subtle,
-  .glass-strong {
+  .glass-strong,
+  .glass-bar {
     background-color: var(--glass-fallback);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
@@ -353,7 +367,8 @@
 @media (prefers-reduced-transparency: reduce) {
   .glass,
   .glass-subtle,
-  .glass-strong {
+  .glass-strong,
+  .glass-bar {
     background-color: var(--glass-fallback);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
@@ -404,6 +419,73 @@
 
   .table-stack td:not([data-label])::before {
     content: none;
+  }
+}
+
+/* Phase 8C — page content rises into place once, and budget progress bars grow
+   from the left on load. Both are transform-only, so they never shift layout. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@utility animate-rise-in {
+  animation: rise-in var(--motion-enter) var(--motion-ease) both;
+}
+
+/* Loading skeleton: a slow shimmer over the surface tokens, so it is visible in
+   both themes without a hard-coded grey. */
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+.skeleton {
+  background-color: var(--surface);
+  background-image: linear-gradient(
+    90deg,
+    var(--surface) 25%,
+    var(--surface-elevated) 37%,
+    var(--surface) 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
+.progress-fill {
+  transform-origin: left center;
+  animation: grow-x 600ms var(--motion-ease) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise-in,
+  .progress-fill {
+    animation: none;
   }
 }
 
