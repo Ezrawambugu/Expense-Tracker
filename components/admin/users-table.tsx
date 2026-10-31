@@ -4,13 +4,14 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { USER_ROLES } from '@/lib/constants'
 import { useToast } from '@/components/toast'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Select } from '@/components/ui/field'
+import { TD, TR, Table, TableContainer, THead, TH } from '@/components/ui/table'
 import type {
   AdminDepartmentView,
   AdminUserView,
 } from '@/services/admin-service'
-
-const inputClass =
-  'w-full rounded-md border border-neutral-300 bg-transparent px-2 py-1.5 text-sm focus:border-neutral-500 focus:outline-none dark:border-neutral-700'
 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Admin',
@@ -18,11 +19,7 @@ const ROLE_LABELS: Record<string, string> = {
   staff: 'Staff',
 }
 
-const buttonClass =
-  'rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200'
-
-const dangerButtonClass =
-  'rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40'
+const cellSelect = 'h-9 min-w-[7.5rem] text-footnote'
 
 // One table row: role and department are edited in place; status toggles
 // with a confirmation. The server re-checks every rule (an admin cannot
@@ -142,44 +139,42 @@ function UserRow({
 
   return (
     <>
-      <tr className="border-t border-neutral-200 dark:border-neutral-800">
-        <td className="px-3 py-2 text-sm font-medium">
+      <TR>
+        <TD label="Name" className="font-medium">
           {user.name}
-          {isSelf && (
-            <span className="ml-1 font-normal text-neutral-500">(you)</span>
-          )}
-        </td>
-        <td className="px-3 py-2 text-sm text-neutral-600 dark:text-neutral-300">
+          {isSelf && <span className="text-muted ml-1 font-normal">(you)</span>}
+        </TD>
+        <TD label="Email" className="text-muted">
           {user.email}
-        </td>
-        <td className="px-3 py-2 text-sm">
+        </TD>
+        <TD label="Role">
           <label htmlFor={`role-${user.id}`} className="sr-only">
             Role for {user.name}
           </label>
-          <select
+          <Select
             id={`role-${user.id}`}
             value={role}
             disabled={isSelf || busy}
             onChange={(e) => setRole(e.target.value as typeof user.role)}
-            className={inputClass}
+            className={cellSelect}
           >
             {USER_ROLES.map((r) => (
               <option key={r} value={r}>
                 {ROLE_LABELS[r] ?? r}
               </option>
             ))}
-          </select>
-        </td>
-        <td className="px-3 py-2 text-sm">
+          </Select>
+        </TD>
+        <TD label="Department">
           <label htmlFor={`dept-${user.id}`} className="sr-only">
             Department for {user.name}
           </label>
-          <select
+          <Select
             id={`dept-${user.id}`}
             value={departmentId ?? ''}
             disabled={busy}
             onChange={(e) => setDepartmentId(e.target.value || null)}
-            className={inputClass}
+            className={cellSelect}
           >
             <option value="">No department</option>
             {departments.map((dept) => (
@@ -188,86 +183,81 @@ function UserRow({
                 {dept.isArchived ? ' (archived)' : ''}
               </option>
             ))}
-          </select>
-        </td>
-        <td className="px-3 py-2 text-sm">
-          <span
-            className={
-              user.isActive
-                ? 'rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-950/50 dark:text-green-300'
-                : 'rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300'
-            }
-          >
+          </Select>
+        </TD>
+        <TD label="Status">
+          <Badge tone={user.isActive ? 'ok' : 'neutral'}>
             {user.isActive ? 'Active' : 'Inactive'}
-          </span>
-        </td>
-        <td className="px-3 py-2 text-sm">
-          <div className="flex flex-wrap items-center gap-2">
-            <button
+          </Badge>
+        </TD>
+        <TD label="Actions">
+          <div className="flex flex-nowrap items-center justify-end gap-2 whitespace-nowrap">
+            <Button
               type="button"
               onClick={save}
               disabled={busy || !dirty}
-              className={buttonClass}
+              size="compact"
             >
               {busy ? 'Saving…' : 'Save'}
-            </button>
+            </Button>
             {!isSelf && (
               <>
-                <button
+                <Button
                   type="button"
                   onClick={toggleActive}
                   disabled={busy}
-                  className={dangerButtonClass}
+                  variant="destructive"
+                  size="compact"
                 >
                   {user.isActive ? 'Deactivate' : 'Reactivate'}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
                   onClick={resetPassword}
                   disabled={busy}
-                  className={buttonClass}
+                  variant="tinted"
+                  size="compact"
                 >
                   Reset password
-                </button>
+                </Button>
               </>
             )}
           </div>
           {error && (
-            <p
-              role="alert"
-              className="mt-1 text-xs text-red-600 dark:text-red-400"
-            >
+            <p role="alert" className="text-exceeded-text text-footnote mt-1">
               {error}
             </p>
           )}
-        </td>
-      </tr>
+        </TD>
+      </TR>
       {temporaryPassword && (
-        <tr className="bg-amber-50/60 dark:bg-amber-950/20">
-          <td colSpan={6} className="px-3 py-2 text-sm">
+        <tr className="bg-warning-tint">
+          <td colSpan={6} className="px-4 py-3">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-medium">
+              <span className="text-subheadline font-medium">
                 Temporary password for {user.email}:
               </span>
-              <code className="rounded bg-neutral-100 px-2 py-0.5 font-mono dark:bg-neutral-800">
+              <code className="bg-surface-elevated rounded-control text-footnote px-2 py-1 font-mono">
                 {temporaryPassword}
               </code>
-              <button
+              <Button
                 type="button"
                 onClick={copyPassword}
-                className="text-xs font-medium underline"
+                variant="plain"
+                size="compact"
               >
                 Copy
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={() => setTemporaryPassword(null)}
-                className="text-xs underline"
+                variant="plain"
+                size="compact"
               >
                 Dismiss
-              </button>
+              </Button>
             </div>
-            <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+            <p className="text-footnote text-muted mt-1">
               Give this to the user. They must change it at next sign-in and
               cannot use the app until they do.
             </p>
@@ -289,37 +279,27 @@ export function UsersTable({
 }) {
   if (users.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-500 dark:border-neutral-700">
+      <div className="text-muted border-separator rounded-card border border-dashed p-8 text-center">
         No users yet. Create the first one above.
       </div>
     )
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
-      <table className="w-full min-w-[720px] text-left">
-        <thead className="bg-neutral-50 text-xs font-medium text-neutral-500 dark:bg-neutral-900 dark:text-neutral-400">
-          <tr>
-            <th scope="col" className="px-3 py-2">
-              Name
-            </th>
-            <th scope="col" className="px-3 py-2">
-              Email
-            </th>
-            <th scope="col" className="px-3 py-2">
-              Role
-            </th>
-            <th scope="col" className="px-3 py-2">
-              Department
-            </th>
-            <th scope="col" className="px-3 py-2">
-              Status
-            </th>
-            <th scope="col" className="px-3 py-2">
+    <TableContainer>
+      <Table className="min-w-0 sm:min-w-[46rem]">
+        <THead>
+          <TR className="hover:bg-transparent">
+            <TH>Name</TH>
+            <TH>Email</TH>
+            <TH>Role</TH>
+            <TH>Department</TH>
+            <TH>Status</TH>
+            <TH numeric>
               <span className="sr-only">Actions</span>
-            </th>
-          </tr>
-        </thead>
+            </TH>
+          </TR>
+        </THead>
         <tbody>
           {users.map((user) => (
             <UserRow
@@ -330,7 +310,7 @@ export function UsersTable({
             />
           ))}
         </tbody>
-      </table>
-    </div>
+      </Table>
+    </TableContainer>
   )
 }

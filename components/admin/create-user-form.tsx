@@ -6,12 +6,12 @@ import { z } from 'zod'
 import { USER_ROLES } from '@/lib/constants'
 import { CreateUserSchema } from '@/schemas/admin'
 import { useToast } from '@/components/toast'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Field, FormError, Input, Select } from '@/components/ui/field'
 import type { AdminDepartmentView } from '@/services/admin-service'
 
 type FieldErrors = Record<string, string[]>
-
-const inputClass =
-  'mt-1 w-full rounded-md border border-neutral-300 bg-transparent px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none dark:border-neutral-700'
 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Admin',
@@ -82,170 +82,134 @@ export function CreateUserForm({
   }
 
   return (
-    <section
-      aria-labelledby="create-user-heading"
-      className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800"
-    >
-      <h2 id="create-user-heading" className="text-base font-semibold">
-        Create user
-      </h2>
-      <form onSubmit={handleSubmit} noValidate className="mt-3">
-        {formError && (
-          <p
-            role="alert"
-            className="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
-          >
-            {formError}
-          </p>
-        )}
+    <Card className="p-5 sm:p-6">
+      <section aria-labelledby="create-user-heading">
+        <h2 id="create-user-heading" className="text-headline">
+          Create user
+        </h2>
+        <form onSubmit={handleSubmit} noValidate className="mt-4">
+          {formError && (
+            <div className="mb-4">
+              <FormError message={formError} />
+            </div>
+          )}
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div>
-            <label
-              htmlFor="new-user-name"
-              className="block text-sm font-medium"
-            >
-              Name
-            </label>
-            <input
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Field
               id="new-user-name"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              aria-invalid={!!fieldErrors.name}
-              className={inputClass}
-            />
-            {fieldErrors.name && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                {fieldErrors.name[0]}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label
-              htmlFor="new-user-email"
-              className="block text-sm font-medium"
+              label="Name"
+              error={fieldErrors.name?.[0]}
             >
-              Email
-            </label>
-            <input
+              <Input
+                id="new-user-name"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                aria-invalid={!!fieldErrors.name}
+                aria-describedby={
+                  fieldErrors.name ? 'new-user-name-error' : undefined
+                }
+              />
+            </Field>
+
+            <Field
               id="new-user-email"
-              type="email"
-              autoComplete="off"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              aria-invalid={!!fieldErrors.email}
-              className={inputClass}
-            />
-            {fieldErrors.email && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                {fieldErrors.email[0]}
-              </p>
-            )}
-            <p className="mt-1 text-xs text-neutral-500">
-              An email address belongs to one organization only.
-            </p>
-          </div>
-
-          <div>
-            <label
-              htmlFor="new-user-password"
-              className="block text-sm font-medium"
+              label="Email"
+              hint="An email address belongs to one organization only."
+              error={fieldErrors.email?.[0]}
             >
-              Initial password
-            </label>
-            <input
+              <Input
+                id="new-user-email"
+                type="email"
+                autoComplete="off"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                aria-invalid={!!fieldErrors.email}
+                aria-describedby={
+                  fieldErrors.email ? 'new-user-email-error' : undefined
+                }
+              />
+            </Field>
+
+            <Field
               id="new-user-password"
-              type="password"
-              autoComplete="new-password"
-              required
-              minLength={8}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              aria-invalid={!!fieldErrors.password}
-              className={inputClass}
-            />
-            <p className="mt-1 text-xs text-neutral-500">
-              At least 8 characters. Share it with the user; it is never shown
-              again.
-            </p>
-            {fieldErrors.password && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                {fieldErrors.password[0]}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label
-              htmlFor="new-user-role"
-              className="block text-sm font-medium"
+              label="Initial password"
+              hint="At least 8 characters. Share it with the user; it is never shown again."
+              error={fieldErrors.password?.[0]}
             >
-              Role
-            </label>
-            <select
+              <Input
+                id="new-user-password"
+                type="password"
+                autoComplete="new-password"
+                required
+                minLength={8}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                aria-invalid={!!fieldErrors.password}
+                aria-describedby={
+                  fieldErrors.password ? 'new-user-password-error' : undefined
+                }
+              />
+            </Field>
+
+            <Field
               id="new-user-role"
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              aria-invalid={!!fieldErrors.role}
-              className={inputClass}
+              label="Role"
+              error={fieldErrors.role?.[0]}
             >
-              {USER_ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {ROLE_LABELS[r] ?? r}
-                </option>
-              ))}
-            </select>
-            {fieldErrors.role && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                {fieldErrors.role[0]}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label
-              htmlFor="new-user-department"
-              className="block text-sm font-medium"
-            >
-              Department
-            </label>
-            <select
-              id="new-user-department"
-              value={departmentId}
-              onChange={(e) => setDepartmentId(e.target.value)}
-              aria-invalid={!!fieldErrors.departmentId}
-              className={inputClass}
-            >
-              <option value="">No department</option>
-              {departments
-                .filter((dept) => !dept.isArchived)
-                .map((dept) => (
-                  <option key={dept.id} value={dept.id}>
-                    {dept.name}
+              <Select
+                id="new-user-role"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                aria-invalid={!!fieldErrors.role}
+                aria-describedby={
+                  fieldErrors.role ? 'new-user-role-error' : undefined
+                }
+              >
+                {USER_ROLES.map((r) => (
+                  <option key={r} value={r}>
+                    {ROLE_LABELS[r] ?? r}
                   </option>
                 ))}
-            </select>
-            {fieldErrors.departmentId && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                {fieldErrors.departmentId[0]}
-              </p>
-            )}
-          </div>
+              </Select>
+            </Field>
 
-          <div className="flex items-end">
-            <button
-              type="submit"
-              disabled={busy}
-              className="rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
+            <Field
+              id="new-user-department"
+              label="Department"
+              error={fieldErrors.departmentId?.[0]}
             >
-              {busy ? 'Creating…' : 'Create user'}
-            </button>
+              <Select
+                id="new-user-department"
+                value={departmentId}
+                onChange={(e) => setDepartmentId(e.target.value)}
+                aria-invalid={!!fieldErrors.departmentId}
+                aria-describedby={
+                  fieldErrors.departmentId
+                    ? 'new-user-department-error'
+                    : undefined
+                }
+              >
+                <option value="">No department</option>
+                {departments
+                  .filter((dept) => !dept.isArchived)
+                  .map((dept) => (
+                    <option key={dept.id} value={dept.id}>
+                      {dept.name}
+                    </option>
+                  ))}
+              </Select>
+            </Field>
+
+            <div className="flex items-end">
+              <Button type="submit" disabled={busy}>
+                {busy ? 'Creating…' : 'Create user'}
+              </Button>
+            </div>
           </div>
-        </div>
-      </form>
-    </section>
+        </form>
+      </section>
+    </Card>
   )
 }

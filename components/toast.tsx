@@ -1,9 +1,13 @@
 'use client'
 
 import { createContext, useCallback, useContext, useRef, useState } from 'react'
+import { CircleAlert, CircleCheck } from 'lucide-react'
+import { Icon } from '@/components/ui/icon'
 
 // Minimal toast system: the provider lives in the protected layout, so a
 // toast fired just before router.push() is still on screen after navigation.
+// Phase 8B: glass capsule at the top center with a status icon. The API,
+// the 4s auto-dismiss and the aria-live behaviour are unchanged.
 
 type Toast = { id: number; message: string; tone: 'success' | 'error' }
 
@@ -40,21 +44,27 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {/* aria-live region so success messages reach screen readers. */}
       <div
         aria-live="polite"
-        className="pointer-events-none fixed inset-x-4 bottom-4 z-50 flex flex-col items-center gap-2 sm:inset-x-auto sm:right-4 sm:items-end"
+        className="pointer-events-none fixed inset-x-0 top-4 z-50 flex flex-col items-center gap-2 px-4"
       >
-        {toasts.map((t) => (
-          <div
-            key={t.id}
-            role={t.tone === 'error' ? 'alert' : 'status'}
-            className={
-              t.tone === 'error'
-                ? 'pointer-events-auto rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 shadow-lg dark:border-red-900 dark:bg-red-950 dark:text-red-300'
-                : 'pointer-events-auto rounded-md border border-green-300 bg-green-50 px-4 py-2 text-sm font-medium text-green-800 shadow-lg dark:border-green-900 dark:bg-green-950 dark:text-green-300'
-            }
-          >
-            {t.message}
-          </div>
-        ))}
+        {toasts.map((t) => {
+          const isError = t.tone === 'error'
+          return (
+            <div
+              key={t.id}
+              role={isError ? 'alert' : 'status'}
+              className={`glass-strong shadow-floating animate-toast-in text-subheadline pointer-events-auto flex max-w-full items-center gap-2 rounded-full px-4 py-2.5 font-medium ${
+                isError ? 'text-exceeded-text' : 'text-foreground'
+              }`}
+            >
+              <Icon
+                icon={isError ? CircleAlert : CircleCheck}
+                size={16}
+                className={isError ? 'text-exceeded' : 'text-ok'}
+              />
+              <span className="truncate">{t.message}</span>
+            </div>
+          )
+        })}
       </div>
     </ToastContext.Provider>
   )

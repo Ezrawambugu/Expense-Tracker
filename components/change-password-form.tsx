@@ -3,11 +3,10 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChangePasswordSchema } from '@/schemas/auth'
+import { Button } from '@/components/ui/button'
+import { Field, FormError, Input } from '@/components/ui/field'
 
 type FieldErrors = Record<string, string[]>
-
-const inputClass =
-  'mt-1 w-full rounded-md border border-neutral-300 bg-transparent px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none dark:border-neutral-700'
 
 // Shared by /account (voluntary) and /account/change-password (forced by an
 // admin-set temporary password). Posts to /api/account/password, which
@@ -60,21 +59,15 @@ export function ChangePasswordForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="space-y-4">
-      {formError && (
-        <p
-          role="alert"
-          className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
-        >
-          {formError}
-        </p>
-      )}
+    <form onSubmit={handleSubmit} noValidate className="space-y-5">
+      {formError && <FormError message={formError} />}
 
-      <div>
-        <label htmlFor="currentPassword" className="block text-sm font-medium">
-          Current password
-        </label>
-        <input
+      <Field
+        id="currentPassword"
+        label="Current password"
+        error={fieldErrors.currentPassword?.[0]}
+      >
+        <Input
           id="currentPassword"
           type="password"
           autoComplete="current-password"
@@ -82,20 +75,19 @@ export function ChangePasswordForm() {
           value={currentPassword}
           onChange={(e) => setCurrentPassword(e.target.value)}
           aria-invalid={!!fieldErrors.currentPassword}
-          className={inputClass}
+          aria-describedby={
+            fieldErrors.currentPassword ? 'currentPassword-error' : undefined
+          }
         />
-        {fieldErrors.currentPassword && (
-          <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-            {fieldErrors.currentPassword[0]}
-          </p>
-        )}
-      </div>
+      </Field>
 
-      <div>
-        <label htmlFor="newPassword" className="block text-sm font-medium">
-          New password
-        </label>
-        <input
+      <Field
+        id="newPassword"
+        label="New password"
+        hint="At least 8 characters."
+        error={fieldErrors.newPassword?.[0]}
+      >
+        <Input
           id="newPassword"
           type="password"
           autoComplete="new-password"
@@ -103,21 +95,18 @@ export function ChangePasswordForm() {
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
           aria-invalid={!!fieldErrors.newPassword}
-          className={inputClass}
+          aria-describedby={
+            fieldErrors.newPassword ? 'newPassword-error' : undefined
+          }
         />
-        {fieldErrors.newPassword && (
-          <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-            {fieldErrors.newPassword[0]}
-          </p>
-        )}
-        <p className="mt-1 text-xs text-neutral-500">At least 8 characters.</p>
-      </div>
+      </Field>
 
-      <div>
-        <label htmlFor="confirmPassword" className="block text-sm font-medium">
-          Confirm new password
-        </label>
-        <input
+      <Field
+        id="confirmPassword"
+        label="Confirm new password"
+        error={fieldErrors.confirmPassword?.[0]}
+      >
+        <Input
           id="confirmPassword"
           type="password"
           autoComplete="new-password"
@@ -125,22 +114,15 @@ export function ChangePasswordForm() {
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           aria-invalid={!!fieldErrors.confirmPassword}
-          className={inputClass}
+          aria-describedby={
+            fieldErrors.confirmPassword ? 'confirmPassword-error' : undefined
+          }
         />
-        {fieldErrors.confirmPassword && (
-          <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-            {fieldErrors.confirmPassword[0]}
-          </p>
-        )}
-      </div>
+      </Field>
 
-      <button
-        type="submit"
-        disabled={busy}
-        className="w-full rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
-      >
+      <Button type="submit" disabled={busy} className="w-full">
         {busy ? 'Changing…' : 'Change password'}
-      </button>
+      </Button>
     </form>
   )
 }

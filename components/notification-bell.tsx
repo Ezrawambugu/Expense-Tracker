@@ -3,8 +3,11 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { Bell } from 'lucide-react'
 import { useToast } from '@/components/toast'
 import { NotificationIcon } from '@/components/notification-icon'
+import { Button } from '@/components/ui/button'
+import { Icon } from '@/components/ui/icon'
 import type { NotificationType } from '@/lib/constants'
 
 type Notification = {
@@ -118,88 +121,76 @@ export function NotificationBell({
 
   return (
     <div className="relative">
-      <button
+      <Button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="relative flex h-9 w-9 items-center justify-center rounded-md text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+        variant="plain"
+        size="compact"
+        className="relative w-9 px-0"
         aria-label={`Notifications${unread > 0 ? `, ${unread} unread` : ''}`}
         aria-expanded={open}
       >
         {unread > 0 && (
           <span
-            className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white"
+            className="bg-exceeded text-caption absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 font-semibold text-white"
             aria-label={`${unread} unread`}
           >
             {unread > 9 ? '9+' : unread}
           </span>
         )}
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="22"
-          height="22"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-        </svg>
-      </button>
+        <Icon icon={Bell} size={20} />
+      </Button>
 
       {open && (
         <div
           ref={panelRef}
-          className="absolute right-0 z-50 mt-2 w-80 origin-top-right rounded-lg border border-neutral-200 bg-white py-1 shadow-lg dark:border-neutral-800 dark:bg-neutral-900"
+          className="bg-surface border-separator shadow-floating rounded-card absolute right-0 z-50 mt-2 w-80 origin-top-right overflow-hidden border"
         >
-          <div className="flex items-center justify-between px-4 py-2">
-            <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-              Notifications
-            </span>
-            <button
+          <div className="border-separator flex items-center justify-between gap-2 border-b px-4 py-3">
+            <span className="text-headline">Notifications</span>
+            <Button
               type="button"
               onClick={markAll}
-              className="text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+              variant="plain"
+              size="compact"
             >
               Mark all as read
-            </button>
+            </Button>
           </div>
           {!loaded && (
-            <div className="px-4 py-6 text-center text-sm text-neutral-500">
+            <div className="text-muted text-footnote px-4 py-8 text-center">
               Loading…
             </div>
           )}
           {loaded && items.length === 0 && (
-            <div className="px-4 py-6 text-center text-sm text-neutral-500">
+            <div className="text-muted text-footnote px-4 py-8 text-center">
               No notifications yet.
             </div>
           )}
           {loaded && items.length > 0 && (
             <ul className="max-h-[400px] overflow-y-auto">
               {items.map((item) => (
-                <li key={item.id}>
+                <li
+                  key={item.id}
+                  className="border-separator border-b last:border-0"
+                >
                   <button
                     type="button"
                     onClick={() => openNotification(item.id, item.link)}
-                    className={`flex w-full items-start gap-3 rounded-md px-4 py-2 text-left text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800/60 ${
-                      item.readAt === null
-                        ? 'bg-neutral-50/70 dark:bg-neutral-800/40'
-                        : ''
+                    className={`hover:bg-accent-tint/40 duration-hover flex w-full items-start gap-3 px-4 py-3 text-left transition-colors ${
+                      item.readAt === null ? 'bg-accent-tint/25' : ''
                     }`}
                   >
-                    <span className="mt-0.5 shrink-0">
+                    <span className="text-muted mt-0.5 shrink-0">
                       <NotificationIcon name={item.type} />
                     </span>
                     <span className="flex flex-col gap-0.5">
-                      <span className="text-neutral-900 dark:text-neutral-100">
+                      <span className="text-subheadline text-foreground">
                         {item.message}
                       </span>
                       <time
                         dateTime={item.createdAt}
-                        className="truncate text-xs text-neutral-500"
+                        className="text-footnote text-muted truncate"
                       >
                         {new Date(item.createdAt).toLocaleString(undefined, {
                           month: 'short',
@@ -214,11 +205,11 @@ export function NotificationBell({
               ))}
             </ul>
           )}
-          <div className="border-t border-neutral-200 px-4 py-2 text-center text-sm dark:border-neutral-800">
+          <div className="border-separator border-t px-4 py-2.5 text-center">
             <Link
               href="/notifications"
               onClick={() => setOpen(false)}
-              className="font-medium text-neutral-700 underline hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-neutral-100"
+              className="text-accent-text text-footnote font-medium"
             >
               View all
             </Link>
