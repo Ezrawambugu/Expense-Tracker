@@ -360,6 +360,76 @@
   }
 }
 
+/* ==========================================================================
+   Phase 8B — component support
+   ========================================================================== */
+
+/* List tables collapse into stacked cards under 640px (iOS grouped list). The
+   markup stays a real <table>; only the display changes, and named cells show
+   their column label via data-label. Screen-only so print keeps table rows. */
+@media screen and (max-width: 639px) {
+  .table-stack thead {
+    display: none;
+  }
+
+  .table-stack,
+  .table-stack tbody,
+  .table-stack tr,
+  .table-stack td {
+    display: block;
+    width: 100%;
+  }
+
+  .table-stack tbody {
+    padding: 0.25rem 0;
+  }
+
+  .table-stack td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.4rem 1rem;
+    text-align: right;
+    white-space: normal;
+  }
+
+  .table-stack td::before {
+    content: attr(data-label);
+    color: var(--muted-foreground);
+    font-size: 13px;
+    text-align: left;
+    flex-shrink: 0;
+  }
+
+  .table-stack td:not([data-label])::before {
+    content: none;
+  }
+}
+
+/* Toast enter animation, on the motion tokens. Exit is a plain removal so the
+   toast lifecycle (4s auto-dismiss) is unchanged. */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@utility animate-toast-in {
+  animation: toast-in var(--motion-enter) var(--motion-ease) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-toast-in {
+    animation: none;
+  }
+}
+
 /* Print stylesheet (Phase 7C): Print > Save as PDF on /reports should give a
    clean report — no navigation, filters or export links, and charts keep their
    colours. */

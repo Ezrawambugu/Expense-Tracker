@@ -17,6 +17,7 @@
     "bcryptjs": "^3",
     "exceljs": "^4.4.0",
     "jose": "^6",
+    "lucide-react": "^1.66.0",
     "mongoose": "^8",
     "next": "16.4.2",
     "react": "19.3.0",
