@@ -24,6 +24,9 @@ const axisProps = {
 
 const chartWrapperClass = 'h-64 w-full text-muted'
 
+// Charts are decorative duplicates of numbers that also exist in tables, so the
+// wrapper carries a role and a label instead of exposing SVG internals.
+
 // Tooltips are small glass cards, matching the floating chrome elsewhere.
 function GlassTooltip({
   active,
@@ -56,7 +59,11 @@ export function TrendChart({
   currency: string
 }) {
   return (
-    <div className={chartWrapperClass}>
+    <div
+      className={chartWrapperClass}
+      role="img"
+      aria-label="Approved spending for the last six months"
+    >
       <ResponsiveContainer width="100%" height="100%">
         <LineChart
           data={points}
@@ -114,7 +121,11 @@ export function CategoryChart({
   currency: string
 }) {
   return (
-    <div className={chartWrapperClass}>
+    <div
+      className={chartWrapperClass}
+      role="img"
+      aria-label="Approved spending by category for the selected month"
+    >
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={data}

@@ -297,7 +297,7 @@ export default async function ExpensesPage({
           {result.page > 1 ? (
             <LinkButton
               href={buildUrl({ page: String(result.page - 1) })}
-              variant="glass"
+              variant="tinted"
               size="compact"
             >
               Previous
@@ -313,7 +313,7 @@ export default async function ExpensesPage({
           {result.page < result.totalPages ? (
             <LinkButton
               href={buildUrl({ page: String(result.page + 1) })}
-              variant="glass"
+              variant="tinted"
               size="compact"
             >
               Next

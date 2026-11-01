@@ -11,9 +11,7 @@ import { verifySession } from '@/lib/auth'
 const SESSION_COOKIE = 'session'
 
 // Public pages (no session required).
-// /design-preview is the temporary Phase 8A token preview page; delete both
-// the route and this entry once the redesign lands.
-const PUBLIC_PATHS = new Set(['/login', '/register', '/', '/design-preview'])
+const PUBLIC_PATHS = new Set(['/login', '/register', '/'])
 
 // Path prefix -> roles allowed. Anything not listed only requires a session.
 const ROLE_PATHS: { prefix: string; roles: string[] }[] = [

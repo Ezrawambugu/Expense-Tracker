@@ -62,7 +62,7 @@ export function MobileTabBar({ role }: { role: Role }) {
               <Link
                 href={tab.href}
                 aria-current={active ? 'page' : undefined}
-                className={`duration-hover ease-apple flex flex-col items-center gap-0.5 rounded-[20px] px-1 py-1.5 text-[10px] font-medium tracking-tight transition-colors ${
+                className={`focus-visible:ring-accent/40 duration-hover ease-apple flex flex-col items-center gap-0.5 rounded-[20px] px-1 py-1.5 text-[10px] font-medium tracking-tight transition-colors focus-visible:ring-[3px] focus-visible:outline-none ${
                   active
                     ? 'bg-accent-tint text-accent-text'
                     : 'text-muted hover:text-foreground'

@@ -127,7 +127,7 @@ export default async function NotificationsPage({
           {result.page > 1 && (
             <LinkButton
               href={`/notifications?page=${result.page - 1}&pageSize=${result.pageSize}`}
-              variant="glass"
+              variant="tinted"
               size="compact"
             >
               Previous
@@ -136,7 +136,7 @@ export default async function NotificationsPage({
           {result.page < result.totalPages && (
             <LinkButton
               href={`/notifications?page=${result.page + 1}&pageSize=${result.pageSize}`}
-              variant="glass"
+              variant="tinted"
               size="compact"
             >
               Next

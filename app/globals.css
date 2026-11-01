@@ -512,6 +512,33 @@
   }
 }
 
+/* ==========================================================================
+   Phase 8D — motion and focus
+   ========================================================================== */
+
+/* Every link gets a visible focus ring, including the ones whose component only
+   styles hover. Buttons draw their own ring. */
+@layer base {
+  a:focus-visible {
+    border-radius: 6px;
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+/* One switch disables every animation, transition and smooth scroll. The
+   targeted rules above stay as documentation of what reduces. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* Print stylesheet (Phase 7C): Print > Save as PDF on /reports should give a
    clean report — no navigation, filters or export links, and charts keep their
    colours. */

@@ -48,7 +48,7 @@ function PillGroup({ links, role }: { links: LinkDef[]; role: Role }) {
             key={link.href}
             href={link.href}
             aria-current={active ? 'page' : undefined}
-            className={`duration-hover ease-apple text-footnote rounded-full px-3 py-1.5 font-medium whitespace-nowrap transition-[background-color,color,box-shadow] ${
+            className={`focus-visible:ring-accent/40 duration-hover ease-apple text-footnote rounded-full px-3 py-1.5 font-medium whitespace-nowrap transition-[background-color,color,box-shadow] focus-visible:ring-[3px] focus-visible:outline-none ${
               active
                 ? 'bg-accent-fill text-on-accent shadow-card'
                 : 'text-muted hover:bg-surface-elevated hover:text-foreground'
