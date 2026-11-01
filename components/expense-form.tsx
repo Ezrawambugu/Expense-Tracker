@@ -8,6 +8,14 @@ import { CATEGORIES } from '@/lib/constants'
 import { todayDateOnly } from '@/lib/format'
 import { CreateExpenseSchema, UpdateExpenseSchema } from '@/schemas/expense'
 import { useToast } from '@/components/toast'
+import { Button } from '@/components/ui/button'
+import {
+  Field,
+  FormError,
+  Input,
+  Select,
+  Textarea,
+} from '@/components/ui/field'
 
 type FieldErrors = Record<string, string[]>
 
@@ -17,9 +25,6 @@ export type ExpenseFormInitial = {
   date: string
   description: string
 }
-
-const inputClass =
-  'mt-1 w-full rounded-md border border-neutral-300 bg-transparent px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none dark:border-neutral-700'
 
 export function ExpenseForm({
   mode,
@@ -92,46 +97,28 @@ export function ExpenseForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="max-w-lg space-y-4">
-      {formError && (
-        <p
-          role="alert"
-          className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
-        >
-          {formError}
-        </p>
-      )}
+    <form onSubmit={handleSubmit} noValidate className="max-w-lg space-y-5">
+      {formError && <FormError message={formError} />}
 
-      <div>
-        <label htmlFor="category" className="block text-sm font-medium">
-          Category
-        </label>
-        <select
+      <Field id="category" label="Category" error={fieldErrors.category?.[0]}>
+        <Select
           id="category"
           required
           value={category}
           onChange={(e) => setCategory(e.target.value)}
           aria-invalid={!!fieldErrors.category}
-          className={inputClass}
+          aria-describedby={fieldErrors.category ? 'category-error' : undefined}
         >
           {CATEGORIES.map((c) => (
             <option key={c} value={c}>
               {c}
             </option>
           ))}
-        </select>
-        {fieldErrors.category && (
-          <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-            {fieldErrors.category[0]}
-          </p>
-        )}
-      </div>
+        </Select>
+      </Field>
 
-      <div>
-        <label htmlFor="amount" className="block text-sm font-medium">
-          Amount
-        </label>
-        <input
+      <Field id="amount" label="Amount" error={fieldErrors.amount?.[0]}>
+        <Input
           id="amount"
           type="number"
           inputMode="decimal"
@@ -141,20 +128,13 @@ export function ExpenseForm({
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           aria-invalid={!!fieldErrors.amount}
-          className={inputClass}
+          aria-describedby={fieldErrors.amount ? 'amount-error' : undefined}
+          className="tabular-nums"
         />
-        {fieldErrors.amount && (
-          <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-            {fieldErrors.amount[0]}
-          </p>
-        )}
-      </div>
+      </Field>
 
-      <div>
-        <label htmlFor="date" className="block text-sm font-medium">
-          Date
-        </label>
-        <input
+      <Field id="date" label="Date" error={fieldErrors.date?.[0]}>
+        <Input
           id="date"
           type="date"
           required
@@ -162,53 +142,41 @@ export function ExpenseForm({
           value={date}
           onChange={(e) => setDate(e.target.value)}
           aria-invalid={!!fieldErrors.date}
-          className={inputClass}
+          aria-describedby={fieldErrors.date ? 'date-error' : undefined}
         />
-        {fieldErrors.date && (
-          <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-            {fieldErrors.date[0]}
-          </p>
-        )}
-      </div>
+      </Field>
 
-      <div>
-        <label htmlFor="description" className="block text-sm font-medium">
-          Description <span className="text-neutral-500">(optional)</span>
-        </label>
-        <textarea
+      <Field
+        id="description"
+        label="Description"
+        optional
+        hint={`${description.length}/200 characters`}
+        error={fieldErrors.description?.[0]}
+      >
+        <Textarea
           id="description"
           rows={3}
           maxLength={200}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           aria-invalid={!!fieldErrors.description}
-          className={inputClass}
+          aria-describedby={
+            fieldErrors.description ? 'description-error' : undefined
+          }
         />
-        <p className="mt-1 text-xs text-neutral-500">
-          {description.length}/200 characters
-        </p>
-        {fieldErrors.description && (
-          <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-            {fieldErrors.description[0]}
-          </p>
-        )}
-      </div>
+      </Field>
 
-      <div className="flex items-center gap-3">
-        <button
-          type="submit"
-          disabled={busy}
-          className="rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
-        >
+      <div className="flex items-center gap-3 pt-1">
+        <Button type="submit" disabled={busy}>
           {busy
             ? 'Saving…'
             : mode === 'create'
               ? 'Create expense'
               : 'Save changes'}
-        </button>
+        </Button>
         <Link
           href="/expenses"
-          className="text-sm text-neutral-600 underline dark:text-neutral-300"
+          className="text-accent-text text-subheadline font-medium"
         >
           Cancel
         </Link>

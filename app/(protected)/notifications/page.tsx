@@ -1,10 +1,24 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { Bell } from 'lucide-react'
 import { getSession } from '@/lib/session'
 import { listNotifications } from '@/services/notification-service'
 import { NotificationQuerySchema } from '@/schemas/notification'
 import { NotificationIcon } from '@/components/notification-icon'
 import type { NotificationType } from '@/lib/constants'
+import { PageHeader } from '@/components/ui/page-header'
+import { Badge } from '@/components/ui/badge'
+import { LinkButton } from '@/components/ui/button'
+import { Icon } from '@/components/ui/icon'
+import {
+  Table,
+  TableContainer,
+  TableEmpty,
+  TD,
+  TH,
+  THead,
+  TR,
+} from '@/components/ui/table'
 
 // Reads the session cookie and search params on every request.
 export const instant = false
@@ -50,102 +64,93 @@ export default async function NotificationsPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Notifications</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          In-app notices for approvals, rejections, pending expenses and budget
-          alerts. Read-only for other users.
-        </p>
-      </div>
+      <PageHeader
+        title="Notifications"
+        description="In-app notices for approvals, rejections, pending expenses and budget alerts. Read-only for other users."
+      />
 
-      <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-neutral-200 text-xs tracking-wide text-neutral-500 uppercase dark:border-neutral-800">
-            <tr>
-              <th scope="col" className="px-4 py-3">
-                Type
-              </th>
-              <th scope="col" className="px-4 py-3">
-                Message
-              </th>
-              <th scope="col" className="px-4 py-3">
-                When
-              </th>
-              <th scope="col" className="w-24 px-4 py-3">
-                Status
-              </th>
-            </tr>
-          </thead>
+      <TableContainer>
+        <Table className="min-w-0 sm:min-w-[40rem]">
+          <THead>
+            <TR className="hover:bg-transparent">
+              <TH>Type</TH>
+              <TH>Message</TH>
+              <TH>When</TH>
+              <TH>Status</TH>
+            </TR>
+          </THead>
           <tbody>
             {result.items.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={4}
-                  className="px-4 py-10 text-center text-neutral-500"
-                >
-                  No notifications.
-                </td>
-              </tr>
+              <TableEmpty
+                colSpan={4}
+                icon={<Icon icon={Bell} size={20} />}
+                title="No notifications."
+                description="Approvals, rejections and budget alerts land here."
+              />
             ) : (
               result.items.map((item) => (
-                <tr
-                  key={item.id}
-                  className="border-b border-neutral-100 last:border-0 dark:border-neutral-900"
-                >
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2 text-neutral-900 dark:text-neutral-100">
+                <TR key={item.id}>
+                  <TD label="Type">
+                    <div className="text-foreground flex items-center gap-2">
                       <NotificationIcon name={item.type} />
-                      <span className="text-sm">
+                      <span className="text-subheadline font-medium">
                         {STATUS_LABELS[item.type] ?? item.type}
                       </span>
                     </div>
-                  </td>
-                  <td className="px-4 py-3 text-neutral-700 dark:text-neutral-300">
+                  </TD>
+                  <TD label="Message" className="text-muted">
                     {item.message}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-neutral-500 tabular-nums">
+                  </TD>
+                  <TD label="When" className="text-muted whitespace-nowrap">
                     {formatCreatedAt(item.createdAt)}
-                  </td>
-                  <td className="px-4 py-3 text-right">
+                  </TD>
+                  <TD label="Status">
                     {item.readAt === null ? (
-                      <span className="text-xs font-medium tracking-wide text-amber-600 uppercase dark:text-amber-400">
-                        Unread
-                      </span>
+                      <Badge tone="info">Unread</Badge>
                     ) : (
-                      <span className="text-xs text-neutral-400">Read</span>
+                      <Badge tone="neutral">Read</Badge>
                     )}
-                  </td>
-                </tr>
+                  </TD>
+                </TR>
               ))
             )}
           </tbody>
-        </table>
-      </div>
+        </Table>
+      </TableContainer>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-neutral-500">
-        <p>
+      <div className="text-footnote text-muted flex flex-wrap items-center justify-between gap-3">
+        <p className="tabular-nums">
           {result.total} notification{result.total === 1 ? '' : 's'} · page{' '}
           {result.page} of {result.totalPages}
         </p>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-2">
           {result.page > 1 && (
-            <Link
+            <LinkButton
               href={`/notifications?page=${result.page - 1}&pageSize=${result.pageSize}`}
-              className="underline"
+              variant="tinted"
+              size="compact"
             >
               Previous
-            </Link>
+            </LinkButton>
           )}
           {result.page < result.totalPages && (
-            <Link
+            <LinkButton
               href={`/notifications?page=${result.page + 1}&pageSize=${result.pageSize}`}
-              className="underline"
+              variant="tinted"
+              size="compact"
             >
               Next
-            </Link>
+            </LinkButton>
           )}
         </div>
       </div>
+
+      <Link
+        href="/dashboard"
+        className="text-accent-text text-subheadline inline-block font-medium hover:underline"
+      >
+        Back to dashboard
+      </Link>
     </div>
   )
 }

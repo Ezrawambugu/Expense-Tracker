@@ -1,12 +1,28 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { Plus, Receipt } from 'lucide-react'
 import { getSession } from '@/lib/session'
-import { listExpenses, type ExpenseView } from '@/services/expense-service'
+import { listExpenses } from '@/services/expense-service'
 import { getOrganizationSettings } from '@/services/organization-service'
 import { ExpenseListQuerySchema } from '@/schemas/expense'
 import { formatAmount, formatDateOnly } from '@/lib/format'
 import { CATEGORIES, EXPENSE_STATUSES } from '@/lib/constants'
 import { DeleteExpenseButton } from '@/components/delete-expense-button'
+import { PageHeader } from '@/components/ui/page-header'
+import { Card } from '@/components/ui/card'
+import { Field, Input, Select } from '@/components/ui/field'
+import { Button, LinkButton } from '@/components/ui/button'
+import { ExpenseStatusBadge } from '@/components/ui/badge'
+import { Icon } from '@/components/ui/icon'
+import {
+  Table,
+  TableContainer,
+  TableEmpty,
+  TD,
+  TH,
+  THead,
+  TR,
+} from '@/components/ui/table'
 
 // Reads the session cookie and search params on every request.
 export const instant = false
@@ -16,17 +32,6 @@ type SearchParams = Record<string, string | string[] | undefined>
 function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value
 }
-
-const STATUS_STYLES: Record<ExpenseView['status'], string> = {
-  pending:
-    'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300',
-  approved:
-    'bg-green-100 text-green-800 dark:bg-green-950/50 dark:text-green-300',
-  rejected: 'bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-300',
-}
-
-const selectClass =
-  'mt-1 w-full rounded-md border border-neutral-300 bg-transparent px-2 py-1.5 text-sm focus:border-neutral-500 focus:outline-none dark:border-neutral-700'
 
 export default async function ExpensesPage({
   searchParams,
@@ -93,176 +98,146 @@ export default async function ExpensesPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Expenses</h1>
-          <p className="mt-1 text-sm text-neutral-500">
-            {scopeNote[session.role]}
-          </p>
-          {session.role === 'manager' && !session.departmentId && (
-            <p className="mt-1 text-xs text-neutral-500">
-              No department is assigned to you yet, so there are no expenses to
-              show.
-            </p>
-          )}
-        </div>
-        {/* Managers record their own expenses too (Phase 7B). */}
-        {session.role !== 'admin' && (
-          <Link
-            href="/expenses/new"
-            className="rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
-          >
-            New expense
-          </Link>
-        )}
-      </div>
+      <PageHeader
+        title="Expenses"
+        description={scopeNote[session.role]}
+        actions={
+          /* Managers record their own expenses too (Phase 7B). */
+          session.role !== 'admin' ? (
+            <LinkButton href="/expenses/new">
+              <Icon icon={Plus} size={16} />
+              New expense
+            </LinkButton>
+          ) : undefined
+        }
+      />
 
-      <form
-        method="get"
-        action="/expenses"
-        className="grid grid-cols-1 gap-3 rounded-lg border border-neutral-200 p-4 sm:grid-cols-2 lg:grid-cols-5 dark:border-neutral-800"
-      >
-        <input type="hidden" name="sortBy" value={query.sortBy} />
-        <input type="hidden" name="sortDir" value={query.sortDir} />
+      {session.role === 'manager' && !session.departmentId && (
+        <p className="text-footnote text-muted">
+          No department is assigned to you yet, so there are no expenses to
+          show.
+        </p>
+      )}
 
-        <div>
-          <label htmlFor="category" className="block text-xs font-medium">
-            Category
-          </label>
-          <select
-            id="category"
-            name="category"
-            defaultValue={query.category ?? ''}
-            className={selectClass}
-          >
-            <option value="">All categories</option>
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </div>
+      <Card className="p-4">
+        <form
+          method="get"
+          action="/expenses"
+          className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-5"
+        >
+          <input type="hidden" name="sortBy" value={query.sortBy} />
+          <input type="hidden" name="sortDir" value={query.sortDir} />
 
-        <div>
-          <label htmlFor="status" className="block text-xs font-medium">
-            Status
-          </label>
-          <select
-            id="status"
-            name="status"
-            defaultValue={query.status ?? ''}
-            className={selectClass}
-          >
-            <option value="">All statuses</option>
-            {EXPENSE_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </div>
+          <Field id="category" label="Category">
+            <Select
+              id="category"
+              name="category"
+              defaultValue={query.category ?? ''}
+            >
+              <option value="">All categories</option>
+              {CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </Select>
+          </Field>
 
-        <div>
-          <label htmlFor="from" className="block text-xs font-medium">
-            From
-          </label>
-          <input
-            id="from"
-            name="from"
-            type="date"
-            defaultValue={query.from?.toISOString().slice(0, 10) ?? ''}
-            className={selectClass}
-          />
-        </div>
+          <Field id="status" label="Status">
+            <Select id="status" name="status" defaultValue={query.status ?? ''}>
+              <option value="">All statuses</option>
+              {EXPENSE_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </Select>
+          </Field>
 
-        <div>
-          <label htmlFor="to" className="block text-xs font-medium">
-            To
-          </label>
-          <input
-            id="to"
-            name="to"
-            type="date"
-            defaultValue={query.to?.toISOString().slice(0, 10) ?? ''}
-            className={selectClass}
-          />
-        </div>
+          <Field id="from" label="From">
+            <Input
+              id="from"
+              name="from"
+              type="date"
+              defaultValue={query.from?.toISOString().slice(0, 10) ?? ''}
+            />
+          </Field>
 
-        <div className="flex items-end gap-2">
-          <button
-            type="submit"
-            className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
-          >
-            Apply
-          </button>
-          <Link
-            href="/expenses"
-            className="px-2 py-1.5 text-sm text-neutral-600 underline dark:text-neutral-300"
-          >
-            Reset
-          </Link>
-        </div>
-      </form>
+          <Field id="to" label="To">
+            <Input
+              id="to"
+              name="to"
+              type="date"
+              defaultValue={query.to?.toISOString().slice(0, 10) ?? ''}
+            />
+          </Field>
+
+          <div className="flex items-center gap-2">
+            <Button type="submit" variant="tinted">
+              Apply
+            </Button>
+            <Link
+              href="/expenses"
+              className="text-subheadline text-muted hover:text-foreground px-2 font-medium"
+            >
+              Reset
+            </Link>
+          </div>
+        </form>
+      </Card>
 
       {parsed.success === false && (
-        <p className="text-sm text-red-600 dark:text-red-400">
+        <p className="text-exceeded-text text-footnote">
           Some filters were invalid, so the list shows the defaults.
         </p>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
-        <table className="w-full min-w-[40rem] text-left text-sm">
+      <TableContainer>
+        <Table className="min-w-0 sm:min-w-[44rem]">
           <caption className="sr-only">
             Expenses — page {result.page} of {result.totalPages}
           </caption>
-          <thead className="border-b border-neutral-200 text-xs tracking-wide text-neutral-500 uppercase dark:border-neutral-800">
-            <tr>
-              <th scope="col" className="px-4 py-3">
+          <THead>
+            <TR className="hover:bg-transparent">
+              <TH>
                 <Link
                   href={sortLink('date')}
-                  className="hover:underline"
+                  className="hover:text-foreground"
                   aria-label={`Sort by date${sortIndicator('date')}`}
                 >
                   Date{sortIndicator('date')}
                 </Link>
-              </th>
-              <th scope="col" className="px-4 py-3">
-                Category
-              </th>
-              <th scope="col" className="px-4 py-3">
-                Description
-              </th>
-              <th scope="col" className="px-4 py-3 text-right">
+              </TH>
+              <TH>Category</TH>
+              <TH>Description</TH>
+              <TH numeric>
                 <Link
                   href={sortLink('amount')}
-                  className="hover:underline"
+                  className="hover:text-foreground"
                   aria-label={`Sort by amount${sortIndicator('amount')}`}
                 >
                   Amount{sortIndicator('amount')}
                 </Link>
-              </th>
-              <th scope="col" className="px-4 py-3">
-                Status
-              </th>
-              <th scope="col" className="px-4 py-3">
+              </TH>
+              <TH>Status</TH>
+              <TH>
                 <span className="sr-only">Actions</span>
-              </th>
-            </tr>
-          </thead>
+              </TH>
+            </TR>
+          </THead>
           <tbody>
             {result.items.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={6}
-                  className="px-4 py-10 text-center text-neutral-500"
-                >
-                  No expenses match these filters.{' '}
-                  <Link href="/expenses" className="underline">
+              <TableEmpty
+                colSpan={6}
+                icon={<Icon icon={Receipt} size={20} />}
+                title="No expenses match these filters."
+                description="Try a wider date range or clear the filters to see everything."
+                action={
+                  <LinkButton href="/expenses" variant="tinted" size="compact">
                     Clear filters
-                  </Link>
-                </td>
-              </tr>
+                  </LinkButton>
+                }
+              />
             ) : (
               result.items.map((expense) => {
                 // Owner only, pending only — same rule for staff and managers
@@ -272,84 +247,79 @@ export default async function ExpensesPage({
                   expense.status === 'pending'
 
                 return (
-                  <tr
-                    key={expense.id}
-                    className="border-b border-neutral-100 last:border-0 dark:border-neutral-900"
-                  >
-                    <td className="px-4 py-3 whitespace-nowrap">
+                  <TR key={expense.id}>
+                    <TD label="Date" className="whitespace-nowrap">
                       {formatDateOnly(expense.date)}
-                    </td>
-                    <td className="px-4 py-3">{expense.category}</td>
-                    <td className="px-4 py-3 text-neutral-600 dark:text-neutral-300">
+                    </TD>
+                    <TD label="Category">{expense.category}</TD>
+                    <TD label="Description" className="text-muted">
                       {expense.description || '—'}
-                    </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
+                    </TD>
+                    <TD label="Amount" numeric>
                       {formatAmount(expense.amount, settings.currency)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium capitalize ${STATUS_STYLES[expense.status]}`}
-                      >
-                        {expense.status}
-                      </span>
+                    </TD>
+                    <TD label="Status">
+                      <ExpenseStatusBadge status={expense.status} />
                       {expense.reviewNote && (
-                        <span className="mt-1 block max-w-56 text-xs text-neutral-500">
+                        <span className="text-footnote text-muted mt-1 block max-w-56 text-left whitespace-normal">
                           {expense.reviewNote}
                         </span>
                       )}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    </TD>
+                    <TD label="Actions" className="sm:text-right">
                       {canManage ? (
-                        <span className="flex items-center gap-3">
+                        <span className="flex items-center gap-3 sm:justify-end">
                           <Link
                             href={`/expenses/${expense.id}/edit`}
-                            className="text-sm font-medium underline"
+                            className="text-accent-text text-footnote font-medium hover:underline"
                           >
                             Edit
                           </Link>
                           <DeleteExpenseButton expenseId={expense.id} />
                         </span>
                       ) : (
-                        <span className="text-neutral-400">—</span>
+                        <span className="text-muted">—</span>
                       )}
-                    </td>
-                  </tr>
+                    </TD>
+                  </TR>
                 )
               })
             )}
           </tbody>
-        </table>
-      </div>
+        </Table>
+      </TableContainer>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-neutral-500">
-        <p>
+      <div className="text-footnote text-muted flex flex-wrap items-center justify-between gap-3">
+        <p className="tabular-nums">
           Showing {from}–{to} of {result.total}
         </p>
         <div className="flex items-center gap-2">
           {result.page > 1 ? (
-            <Link
+            <LinkButton
               href={buildUrl({ page: String(result.page - 1) })}
-              className="rounded-md border border-neutral-300 px-3 py-1.5 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
+              variant="tinted"
+              size="compact"
             >
               Previous
-            </Link>
+            </LinkButton>
           ) : (
-            <span className="rounded-md border border-neutral-200 px-3 py-1.5 opacity-40 dark:border-neutral-800">
+            <span className="rounded-control border-separator text-muted border px-3 py-1.5 opacity-45">
               Previous
             </span>
           )}
-          <span>
+          <span className="tabular-nums">
             Page {result.page} of {result.totalPages}
           </span>
           {result.page < result.totalPages ? (
-            <Link
+            <LinkButton
               href={buildUrl({ page: String(result.page + 1) })}
-              className="rounded-md border border-neutral-300 px-3 py-1.5 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
+              variant="tinted"
+              size="compact"
             >
               Next
-            </Link>
+            </LinkButton>
           ) : (
-            <span className="rounded-md border border-neutral-200 px-3 py-1.5 opacity-40 dark:border-neutral-800">
+            <span className="rounded-control border-separator text-muted border px-3 py-1.5 opacity-45">
               Next
             </span>
           )}

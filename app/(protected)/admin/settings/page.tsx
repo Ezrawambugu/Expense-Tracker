@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/session'
 import { getOrganizationSettings } from '@/services/organization-service'
 import { SettingsForm } from '@/components/admin/settings-form'
+import { PageHeader } from '@/components/ui/page-header'
+import { Card } from '@/components/ui/card'
 
 // Reads the session cookie on every request — blocking route (cacheComponents).
 export const instant = false
@@ -18,20 +20,18 @@ export default async function AdminSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Organization-wide settings for {settings.name}.
-        </p>
-      </div>
+      <PageHeader
+        title="Settings"
+        description={`Organization-wide settings for ${settings.name}.`}
+      />
 
-      <section className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
-        <h2 className="mb-3 text-sm font-semibold">Budget alerts and money</h2>
+      <Card className="p-5 sm:p-6">
+        <h2 className="text-headline mb-4">Budget alerts and money</h2>
         <SettingsForm
           initialThreshold={settings.warningThreshold}
           initialCurrency={settings.currency}
         />
-      </section>
+      </Card>
     </div>
   )
 }

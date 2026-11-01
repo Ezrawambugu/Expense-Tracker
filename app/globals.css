@@ -4,27 +4,539 @@
    app/layout.tsx (from localStorage, falling back to the OS preference). */
 @custom-variant dark (&:where(.dark, .dark *));
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ==========================================================================
+   Phase 8A — design tokens
+   Every visual value lives here once, in light and dark. Components consume
+   the Tailwind utilities generated from these tokens (bg-surface, rounded-card,
+   text-title, ease-apple, ...) instead of hard-coded colours and sizes.
+   ========================================================================== */
+
+/* The light palette is also scoped to .light so a subtree can render light
+   tokens by choice (used by the Phase 8A design preview). */
+:root,
+.light {
+  color-scheme: light;
+
+  /* Surfaces and text --------------------------------------------------- */
+  --background: #f2f2f7;
+  --surface: #ffffff;
+  --surface-elevated: #ffffff;
+  --foreground: #1c1c1e;
+  --muted-foreground: #6c6c70;
+  --separator: rgba(60, 60, 67, 0.18);
+  --separator-strong: rgba(60, 60, 67, 0.29);
+
+  /* iOS system palette ------------------------------------------------ */
+  --blue: #007aff;
+  --green: #34c759;
+  --orange: #ff9500;
+  --red: #ff3b30;
+  --indigo: #5856d6;
+  --purple: #af52de;
+  --teal: #30b0c7;
+  --gray: #8e8e93;
+
+  /* Primary action (blue). Text-safe variants are separated so every label
+     clears 4.5:1: #007AFF itself is only 3.2:1 on white. */
+  --accent: var(--blue);
+  --accent-fill: #0066cc; /* white label on this = 5.6:1 */
+  --accent-text: #0062cc; /* link/label colour on surfaces = 6.2:1 */
+  --accent-tint: rgba(0, 122, 255, 0.12);
+  --on-accent: #ffffff;
+  --focus-ring: #0066cc; /* >= 4.5:1 against every light surface */
+
+  /* Status (budget + expense) ----------------------------------------- */
+  --status-ok: var(--green);
+  --status-ok-text: #12702f;
+  --status-ok-tint: rgba(52, 199, 89, 0.14);
+  --status-warning: var(--orange);
+  --status-warning-text: #8a4b00;
+  --status-warning-tint: rgba(255, 149, 0, 0.16);
+  --status-exceeded: var(--red);
+  --status-exceeded-text: #b91c1c;
+  --status-exceeded-tint: rgba(255, 59, 48, 0.14);
+  --status-neutral: var(--gray);
+  --status-neutral-text: #52525b;
+  --status-neutral-tint: rgba(120, 120, 128, 0.12);
+
+  /* Glass (navigation, page headers, floating cards, toasts, dialogs) --- */
+  --glass-bg: rgba(255, 255, 255, 0.55);
+  --glass-bg-subtle: rgba(255, 255, 255, 0.38);
+  --glass-bg-strong: rgba(255, 255, 255, 0.78);
+  --glass-border: rgba(255, 255, 255, 0.35);
+  --glass-highlight: rgba(255, 255, 255, 0.5);
+  --glass-shadow: rgba(0, 0, 0, 0.12);
+  --glass-blur: 24px;
+  --glass-blur-subtle: 16px;
+  --glass-blur-strong: 32px;
+  /* Navigation bar: more opaque than a floating card so content never
+     competes with the labels sitting on it. */
+  --glass-bar-bg: rgba(255, 255, 255, 0.72);
+  /* Solid stand-in used when backdrop-filter is unsupported and whenever
+     prefers-reduced-transparency is set. */
+  --glass-fallback: #f7f7fb;
+
+  /* Motion ------------------------------------------------------------ */
+  --motion-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --motion-press: 120ms;
+  --motion-hover: 200ms;
+  --motion-enter: 350ms;
 }
 
 .dark {
-  --background: #0a0a0a;
-  --foreground: #ededed;
+  color-scheme: dark;
+
+  --background: #000000;
+  --surface: #1c1c1e;
+  --surface-elevated: #2c2c2e;
+  --foreground: #f2f2f7;
+  --muted-foreground: #98989d;
+  --separator: rgba(84, 84, 88, 0.5);
+  --separator-strong: rgba(120, 120, 128, 0.64);
+
+  --blue: #0a84ff;
+  --green: #30d158;
+  --orange: #ff9f0a;
+  --red: #ff453a;
+  --indigo: #5e5ce6;
+  --purple: #bf5af2;
+  --teal: #40c8e0;
+  --gray: #98989d;
+
+  --accent: var(--blue);
+  --accent-fill: #0a6bd8; /* white label on this = 5.1:1 */
+  --accent-text: #0a84ff; /* 5.8:1 on a surface, 6.3:1 on black */
+  --accent-tint: rgba(10, 132, 255, 0.18);
+  --on-accent: #ffffff;
+  --focus-ring: #0a6bd8;
+
+  --status-ok: var(--green);
+  --status-ok-text: #30d158;
+  --status-ok-tint: rgba(48, 209, 88, 0.18);
+  --status-warning: var(--orange);
+  --status-warning-text: #ff9f0a;
+  --status-warning-tint: rgba(255, 159, 10, 0.18);
+  --status-exceeded: var(--red);
+  --status-exceeded-text: #ff6961;
+  --status-exceeded-tint: rgba(255, 69, 58, 0.18);
+  --status-neutral: var(--gray);
+  --status-neutral-text: #c7c7cc;
+  --status-neutral-tint: rgba(152, 152, 157, 0.18);
+
+  --glass-bg: rgba(28, 28, 30, 0.55);
+  --glass-bg-subtle: rgba(28, 28, 30, 0.4);
+  --glass-bg-strong: rgba(44, 44, 46, 0.82);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-highlight: rgba(255, 255, 255, 0.14);
+  --glass-shadow: rgba(0, 0, 0, 0.5);
+  --glass-bar-bg: rgba(28, 28, 30, 0.72);
+  --glass-fallback: #1c1c1e;
 }
 
+/* Tailwind theme mapping. `inline` keeps the var() references live, so a
+   utility like bg-surface follows the .dark scope it renders inside. */
 @theme inline {
+  /* Typography: system SF on Apple platforms, self-hosted Inter everywhere
+     else (next/font/local sets --font-inter). */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display',
+    var(--font-inter), system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
+
+  /* Surfaces and text */
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-muted: var(--muted-foreground);
+  --color-separator: var(--separator);
+  --color-separator-strong: var(--separator-strong);
+
+  /* System palette */
+  --color-blue: var(--blue);
+  --color-green: var(--green);
+  --color-orange: var(--orange);
+  --color-red: var(--red);
+  --color-indigo: var(--indigo);
+  --color-purple: var(--purple);
+  --color-teal: var(--teal);
+  --color-gray: var(--gray);
+
+  /* Action */
+  --color-accent: var(--accent);
+  --color-accent-fill: var(--accent-fill);
+  --color-accent-text: var(--accent-text);
+  --color-accent-tint: var(--accent-tint);
+  --color-on-accent: var(--on-accent);
+  --color-focus-ring: var(--focus-ring);
+
+  /* Status */
+  --color-ok: var(--status-ok);
+  --color-ok-text: var(--status-ok-text);
+  --color-ok-tint: var(--status-ok-tint);
+  --color-warning: var(--status-warning);
+  --color-warning-text: var(--status-warning-text);
+  --color-warning-tint: var(--status-warning-tint);
+  --color-exceeded: var(--status-exceeded);
+  --color-exceeded-text: var(--status-exceeded-text);
+  --color-exceeded-tint: var(--status-exceeded-tint);
+  --color-neutral-status: var(--status-neutral);
+  --color-neutral-status-text: var(--status-neutral-text);
+  --color-neutral-status-tint: var(--status-neutral-tint);
+
+  /* Motion */
+  --ease-apple: var(--motion-ease);
+
+  /* Shape: 12 control, 20 card, 28 dialog/sheet (radius pills use rounded-full) */
+  --radius-control: 12px;
+  --radius-card: 20px;
+  --radius-sheet: 28px;
+
+  /* Shadows are soft and layered; glass carries its own shadow. */
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.08);
+  --shadow-floating:
+    0 1px 2px rgba(0, 0, 0, 0.08), 0 16px 40px rgba(0, 0, 0, 0.16);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+/* Motion durations as named utilities. Tailwind has no duration theme
+   namespace, so these are declared as utilities: duration-press (120ms),
+   duration-hover (200ms), duration-enter (350ms). */
+@utility duration-press {
+  transition-duration: var(--motion-press);
+}
+
+@utility duration-hover {
+  transition-duration: var(--motion-hover);
+}
+
+@utility duration-enter {
+  transition-duration: var(--motion-enter);
+}
+
+/* iOS-inspired type scale. Each step carries its own line height, weight and
+   tracking, so `text-title` alone is complete. */
+@theme {
+  --text-large-title: 34px;
+  --text-large-title--line-height: 41px;
+  --text-large-title--font-weight: 700;
+  --text-large-title--letter-spacing: -0.01em;
+
+  --text-title: 28px;
+  --text-title--line-height: 34px;
+  --text-title--font-weight: 600;
+  --text-title--letter-spacing: -0.01em;
+
+  --text-headline: 17px;
+  --text-headline--line-height: 22px;
+  --text-headline--font-weight: 600;
+
+  --text-body: 16px;
+  --text-body--line-height: 22px;
+
+  --text-subheadline: 15px;
+  --text-subheadline--line-height: 20px;
+
+  --text-footnote: 13px;
+  --text-footnote--line-height: 18px;
+
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+}
+
+@layer base {
+  body {
+    min-height: 100%;
+    /* Static multi-colour wash so glass surfaces have something to blur. */
+    background-color: var(--background);
+    background-image:
+      radial-gradient(
+        65rem 45rem at 8% -12%,
+        rgba(0, 122, 255, 0.16),
+        transparent 62%
+      ),
+      radial-gradient(
+        55rem 40rem at 92% 2%,
+        rgba(175, 82, 222, 0.14),
+        transparent 60%
+      ),
+      radial-gradient(
+        60rem 45rem at 50% 108%,
+        rgba(48, 176, 199, 0.14),
+        transparent 62%
+      );
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  .dark body {
+    background-image:
+      radial-gradient(
+        65rem 45rem at 8% -12%,
+        rgba(10, 132, 255, 0.18),
+        transparent 62%
+      ),
+      radial-gradient(
+        55rem 40rem at 92% 2%,
+        rgba(191, 90, 242, 0.16),
+        transparent 60%
+      ),
+      radial-gradient(
+        60rem 45rem at 50% 108%,
+        rgba(64, 200, 224, 0.1),
+        transparent 62%
+      );
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  ::selection {
+    background-color: var(--accent-tint);
+  }
+}
+
+/* ==========================================================================
+   Glass utilities
+   Light: rgba(255,255,255,0.55) + blur(24px) saturate(180%).
+   Dark:  rgba(28,28,30,0.55)   + the same treatment.
+   Never nest glass inside glass — content surfaces use bg-surface.
+   ========================================================================== */
+
+@utility glass {
+  background-color: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    0 8px 32px var(--glass-shadow),
+    inset 0 1px 0 var(--glass-highlight);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+}
+
+@utility glass-subtle {
+  background-color: var(--glass-bg-subtle);
+  border: 1px solid var(--glass-border);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+  -webkit-backdrop-filter: blur(var(--glass-blur-subtle)) saturate(160%);
+  backdrop-filter: blur(var(--glass-blur-subtle)) saturate(160%);
+}
+
+@utility glass-strong {
+  background-color: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    0 12px 40px var(--glass-shadow),
+    inset 0 1px 0 var(--glass-highlight);
+  -webkit-backdrop-filter: blur(var(--glass-blur-strong)) saturate(180%);
+  backdrop-filter: blur(var(--glass-blur-strong)) saturate(180%);
+}
+
+/* The top navigation bar: full-bleed, blurrier than a card but flatter — a
+   single hairline underneath instead of a floating shadow. */
+@utility glass-bar {
+  background-color: var(--glass-bar-bg);
+  border-bottom: 1px solid var(--separator);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* Solid fallback where backdrop-filter is unsupported (the transparency is
+   still survived by the tint, but the blur effect is not). */
+@supports not (
+  (-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))
+) {
+  .glass,
+  .glass-subtle,
+  .glass-strong,
+  .glass-bar {
+    background-color: var(--glass-fallback);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* Users who ask the OS to reduce transparency get the same solid surfaces. */
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .glass-subtle,
+  .glass-strong,
+  .glass-bar {
+    background-color: var(--glass-fallback);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* ==========================================================================
+   Phase 8B — component support
+   ========================================================================== */
+
+/* List tables collapse into stacked cards under 640px (iOS grouped list). The
+   markup stays a real <table>; only the display changes, and named cells show
+   their column label via data-label. Screen-only so print keeps table rows. */
+@media screen and (max-width: 639px) {
+  .table-stack thead {
+    display: none;
+  }
+
+  .table-stack,
+  .table-stack tbody,
+  .table-stack tr,
+  .table-stack td {
+    display: block;
+    width: 100%;
+  }
+
+  .table-stack tbody {
+    padding: 0.25rem 0;
+  }
+
+  .table-stack td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.4rem 1rem;
+    text-align: right;
+    white-space: normal;
+  }
+
+  .table-stack td::before {
+    content: attr(data-label);
+    color: var(--muted-foreground);
+    font-size: 13px;
+    text-align: left;
+    flex-shrink: 0;
+  }
+
+  .table-stack td:not([data-label])::before {
+    content: none;
+  }
+}
+
+/* Phase 8C — page content rises into place once, and budget progress bars grow
+   from the left on load. Both are transform-only, so they never shift layout. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@utility animate-rise-in {
+  animation: rise-in var(--motion-enter) var(--motion-ease) both;
+}
+
+/* Loading skeleton: a slow shimmer over the surface tokens, so it is visible in
+   both themes without a hard-coded grey. */
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+.skeleton {
+  background-color: var(--surface);
+  background-image: linear-gradient(
+    90deg,
+    var(--surface) 25%,
+    var(--surface-elevated) 37%,
+    var(--surface) 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
+.progress-fill {
+  transform-origin: left center;
+  animation: grow-x 600ms var(--motion-ease) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise-in,
+  .progress-fill {
+    animation: none;
+  }
+}
+
+/* Toast enter animation, on the motion tokens. Exit is a plain removal so the
+   toast lifecycle (4s auto-dismiss) is unchanged. */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@utility animate-toast-in {
+  animation: toast-in var(--motion-enter) var(--motion-ease) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-toast-in {
+    animation: none;
+  }
+}
+
+/* ==========================================================================
+   Phase 8D — motion and focus
+   ========================================================================== */
+
+/* Every link gets a visible focus ring, including the ones whose component only
+   styles hover. Buttons draw their own ring. */
+@layer base {
+  a:focus-visible {
+    border-radius: 6px;
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+/* One switch disables every animation, transition and smooth scroll. The
+   targeted rules above stay as documentation of what reduces. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* Print stylesheet (Phase 7C): Print > Save as PDF on /reports should give a

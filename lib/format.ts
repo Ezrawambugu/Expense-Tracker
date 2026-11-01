@@ -24,6 +24,27 @@ export function formatAmount(
   }
 }
 
+// Chart axes need a narrow label: 1,420.00 -> "KES 1.4K". Falls back to the
+// full amount when the currency code is unknown (Intl would throw).
+export function formatCompactAmount(
+  amount: number,
+  currency: string = DEFAULT_CURRENCY,
+): string {
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+      notation: 'compact',
+      maximumFractionDigits: 1,
+    }).format(amount)
+  } catch {
+    return new Intl.NumberFormat('en-US', {
+      notation: 'compact',
+      maximumFractionDigits: 1,
+    }).format(amount)
+  }
+}
+
 // Expense dates are stored as UTC midnight; show the calendar date as entered.
 export function formatDateOnly(iso: string): string {
   return iso.slice(0, 10)

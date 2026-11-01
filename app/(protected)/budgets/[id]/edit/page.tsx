@@ -3,6 +3,8 @@ import Link from 'next/link'
 import { getSession } from '@/lib/session'
 import { getBudget } from '@/services/budget-service'
 import { BudgetForm } from '@/components/budget-form'
+import { PageHeader } from '@/components/ui/page-header'
+import { Card } from '@/components/ui/card'
 
 export const instant = false
 
@@ -22,27 +24,30 @@ export default async function EditBudgetPage({
   if (!budget) notFound()
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Edit budget</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          {budget.category} · {budget.month}
-        </p>
-      </div>
-
-      <BudgetForm
-        mode="edit"
-        budgetId={budget.id}
-        initial={{
-          month: budget.month,
-          category: budget.category,
-          amount: String(budget.amount),
-          carryOver: budget.carryOver,
-        }}
+    <div className="mx-auto max-w-xl space-y-7">
+      <PageHeader
+        title="Edit budget"
+        description={`${budget.category} · ${budget.month}`}
       />
 
-      <p className="text-sm">
-        <Link href="/budgets" className="underline">
+      <Card className="p-5 sm:p-6">
+        <BudgetForm
+          mode="edit"
+          budgetId={budget.id}
+          initial={{
+            month: budget.month,
+            category: budget.category,
+            amount: String(budget.amount),
+            carryOver: budget.carryOver,
+          }}
+        />
+      </Card>
+
+      <p className="text-subheadline">
+        <Link
+          href="/budgets"
+          className="text-accent-text font-medium hover:underline"
+        >
           Back to budgets
         </Link>
       </p>

@@ -1,38 +1,18 @@
 import { formatAmount, formatPercent } from '@/lib/format'
 import type { BudgetVsActualRow } from '@/services/report-service'
+import { StatusBadge } from '@/components/ui/badge'
+import { TD, TR, Table, TableContainer, THead, TH } from '@/components/ui/table'
 
 // Rule 6 thresholds are reflected here only as colours; the values themselves
 // come from the service via lib/budget-status.ts (or the organization's own
-// warning threshold since Phase 7C).
-const STATUS_STYLES: Record<BudgetVsActualRow['status'], string> = {
-  ok: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300',
-  warning:
-    'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300',
-  exceeded:
-    'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300',
-  unbudgeted:
-    'border-dashed border-neutral-300 bg-transparent text-neutral-600 dark:border-neutral-600 dark:text-neutral-300',
-}
-
-const STATUS_LABEL: Record<BudgetVsActualRow['status'], string> = {
-  ok: 'OK',
-  warning: 'Warning',
-  exceeded: 'Exceeded',
-  unbudgeted: 'No budget',
-}
-
+// warning threshold since Phase 7C). Phase 8B delegates the badge to the
+// shared status badge so budget and expense statuses stay visually consistent.
 export function BudgetStatusBadge({
   status,
 }: {
   status: BudgetVsActualRow['status']
 }) {
-  return (
-    <span
-      className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[status]}`}
-    >
-      {STATUS_LABEL[status]}
-    </span>
-  )
+  return <StatusBadge status={status} />
 }
 
 // Server-rendered budget vs actual table. The column set adapts to the
@@ -57,99 +37,74 @@ export function BudgetVsActualTable({
     value === null ? '—' : formatAmount(value, currency)
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
-      <table className="w-full min-w-[48rem] text-left text-sm">
-        <thead className="border-b border-neutral-200 text-xs tracking-wide text-neutral-500 uppercase dark:border-neutral-800">
-          <tr>
-            {showDepartment && (
-              <th scope="col" className="px-4 py-3">
-                Department
-              </th>
-            )}
-            <th scope="col" className="px-4 py-3">
-              Category
-            </th>
-            <th scope="col" className="px-4 py-3 text-right">
-              Budget
-            </th>
-            <th scope="col" className="px-4 py-3 text-right">
-              Carried over
-            </th>
-            <th scope="col" className="px-4 py-3 text-right">
-              Available
-            </th>
-            <th scope="col" className="px-4 py-3 text-right">
-              Spent
-            </th>
-            <th scope="col" className="px-4 py-3 text-right">
-              Remaining
-            </th>
-            <th scope="col" className="px-4 py-3 text-right">
-              Used
-            </th>
-            <th scope="col" className="px-4 py-3">
-              Status
-            </th>
-            <th scope="col" className="px-4 py-3 text-right">
-              Awaiting
-            </th>
-          </tr>
-        </thead>
+    <TableContainer>
+      <Table className="min-w-0 sm:min-w-[48rem]">
+        <THead>
+          <TR className="hover:bg-transparent">
+            {showDepartment && <TH>Department</TH>}
+            <TH>Category</TH>
+            <TH numeric>Budget</TH>
+            <TH numeric>Carried over</TH>
+            <TH numeric>Available</TH>
+            <TH numeric>Spent</TH>
+            <TH numeric>Remaining</TH>
+            <TH numeric>Used</TH>
+            <TH>Status</TH>
+            <TH numeric>Awaiting</TH>
+          </TR>
+        </THead>
         <tbody>
           {rows.length === 0 ? (
             <tr>
               <td
                 colSpan={colSpan}
-                className="px-4 py-10 text-center text-neutral-500"
+                className="text-muted px-4 py-10 text-center"
               >
                 {emptyMessage}
               </td>
             </tr>
           ) : (
             rows.map((row) => (
-              <tr
-                key={`${row.departmentId}-${row.category}`}
-                className="border-b border-neutral-100 last:border-0 dark:border-neutral-900"
-              >
+              <TR key={`${row.departmentId}-${row.category}`}>
                 {showDepartment && (
-                  <td className="px-4 py-3 text-neutral-600 dark:text-neutral-300">
+                  <TD label="Department" className="text-muted">
                     {row.departmentName}
-                  </td>
+                  </TD>
                 )}
-                <td className="px-4 py-3">{row.category}</td>
-                <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
+                <TD label="Category">{row.category}</TD>
+                <TD label="Budget" numeric>
                   {money(row.budget)}
-                </td>
-                <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
+                </TD>
+                <TD label="Carried over" numeric>
                   {row.carriedOver
                     ? formatAmount(row.carriedOver, currency)
                     : '—'}
-                </td>
-                <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
+                </TD>
+                <TD label="Available" numeric>
                   {money(row.available)}
-                </td>
-                <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
+                </TD>
+                <TD label="Spent" numeric>
                   {formatAmount(row.spent, currency)}
-                </td>
-                <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
+                </TD>
+                <TD label="Remaining" numeric>
                   {money(row.remaining)}
-                </td>
-                <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
+                </TD>
+                <TD label="Used" numeric>
                   {row.percentUsed === null
                     ? '—'
                     : formatPercent(row.percentUsed)}
-                </td>
-                <td className="px-4 py-3">
+                </TD>
+                <TD label="Status">
                   <BudgetStatusBadge status={row.status} />
-                </td>
-                <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
+                </TD>
+                <TD label="Awaiting" numeric>
                   {formatAmount(row.awaitingApproval, currency)}
-                </td>
-              </tr>
+                </TD>
+              </TR>
             ))
           )}
         </tbody>
-      </table>
-    </div>
+      </Table>
+    </TableContainer>
   )
 }

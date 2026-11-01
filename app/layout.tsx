@@ -1,15 +1,16 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import localFont from 'next/font/local'
 import './globals.css'
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-})
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
+// Phase 8A: Inter is self-hosted (the woff2 is copied into app/fonts) and
+// loaded with next/font/local, so no external font request is made at runtime.
+// The full stack in globals.css prefers the platform SF face on Apple devices
+// and falls back to this Inter file, then system-ui.
+const inter = localFont({
+  src: './fonts/inter-latin-wght-normal.woff2',
+  variable: '--font-inter',
+  display: 'swap',
+  weight: '100 900',
 })
 
 export const metadata: Metadata = {
@@ -26,7 +27,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>

@@ -2,7 +2,11 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { CircleAlert } from 'lucide-react'
 import { useToast } from '@/components/toast'
+import { Button } from '@/components/ui/button'
+import { Label, Textarea } from '@/components/ui/field'
+import { Icon } from '@/components/ui/icon'
 
 // Approve or reject a pending expense. Rejecting reveals an optional reason,
 // which the API stores on the expense so staff can see why it was rejected.
@@ -45,61 +49,65 @@ export function ReviewExpenseActions({ expenseId }: { expenseId: string }) {
     <div className="flex flex-col items-start gap-2">
       {rejecting ? (
         <div className="w-56 space-y-2">
-          <label
-            htmlFor={`reason-${expenseId}`}
-            className="block text-xs font-medium"
-          >
-            Reason <span className="text-neutral-500">(optional)</span>
-          </label>
-          <textarea
+          <Label htmlFor={`reason-${expenseId}`} optional>
+            Reason
+          </Label>
+          <Textarea
             id={`reason-${expenseId}`}
             rows={2}
             maxLength={200}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            className="w-full rounded-md border border-neutral-300 bg-transparent px-2 py-1 text-sm focus:border-neutral-500 focus:outline-none dark:border-neutral-700"
+            className="min-h-0 py-2"
           />
           <div className="flex items-center gap-2">
-            <button
+            <Button
               type="button"
               disabled={busy}
               onClick={() => review('reject')}
-              className="rounded-md bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              variant="destructive"
+              size="compact"
             >
               {busy ? 'Saving…' : 'Confirm reject'}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               disabled={busy}
               onClick={() => setRejecting(false)}
-              className="text-xs text-neutral-600 underline dark:text-neutral-300"
+              variant="plain"
+              size="compact"
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
-        <div className="flex items-center gap-3">
-          <button
+        <div className="flex items-center gap-2">
+          <Button
             type="button"
             disabled={busy}
             onClick={() => review('approve')}
-            className="rounded-md border border-green-600 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-50 disabled:opacity-50 dark:text-green-400 dark:hover:bg-green-950/40"
+            variant="success"
+            size="compact"
           >
             {busy ? 'Saving…' : 'Approve'}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             disabled={busy}
             onClick={() => setRejecting(true)}
-            className="text-xs font-medium text-red-600 underline disabled:opacity-50 dark:text-red-400"
+            variant="destructive"
+            size="compact"
           >
             Reject
-          </button>
+          </Button>
         </div>
       )}
       {error && (
-        <span className="text-xs text-red-600 dark:text-red-400">{error}</span>
+        <span className="text-exceeded-text text-footnote inline-flex items-center gap-1">
+          <Icon icon={CircleAlert} size={12} />
+          {error}
+        </span>
       )}
     </div>
   )

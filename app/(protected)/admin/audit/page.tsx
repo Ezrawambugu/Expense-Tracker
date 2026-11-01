@@ -1,10 +1,25 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { ScrollText } from 'lucide-react'
 import { getSession } from '@/lib/session'
 import { listAuditLogs } from '@/services/audit-service'
 import { listUsers } from '@/services/admin-service'
 import { AuditQuerySchema } from '@/schemas/audit'
 import { AUDIT_ACTIONS, AUDIT_ENTITIES } from '@/lib/constants'
+import { PageHeader } from '@/components/ui/page-header'
+import { Card } from '@/components/ui/card'
+import { Field, Input, Select } from '@/components/ui/field'
+import { Button, LinkButton } from '@/components/ui/button'
+import { Icon } from '@/components/ui/icon'
+import {
+  Table,
+  TableContainer,
+  TableEmpty,
+  TD,
+  TH,
+  THead,
+  TR,
+} from '@/components/ui/table'
 
 // Reads the session cookie and search params on every request.
 export const instant = false
@@ -14,9 +29,6 @@ type SearchParams = Record<string, string | string[] | undefined>
 function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value
 }
-
-const controlClass =
-  'mt-1 w-full rounded-md border border-neutral-300 bg-transparent px-2 py-1.5 text-sm focus:border-neutral-500 focus:outline-none dark:border-neutral-700'
 
 const ACTION_LABELS: Record<string, string> = {
   create: 'Created',
@@ -73,205 +85,176 @@ export default async function AdminAuditPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Audit log</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Every create, update, delete, approve and reject in your organization.
-          Read-only, newest first.
-        </p>
-      </div>
+      <PageHeader
+        title="Audit log"
+        description="Every create, update, delete, approve and reject in your organization. Read-only, newest first."
+      />
 
-      <form
-        method="get"
-        action="/admin/audit"
-        className="grid grid-cols-1 gap-3 rounded-lg border border-neutral-200 p-4 sm:grid-cols-2 lg:grid-cols-6 dark:border-neutral-800"
-      >
-        <div className="lg:col-span-2">
-          <label htmlFor="audit-user" className="block text-xs font-medium">
-            User
-          </label>
-          <select
-            id="audit-user"
-            name="userId"
-            defaultValue={query.userId ?? ''}
-            className={controlClass}
-          >
-            <option value="">Anyone</option>
-            {users.map((user) => (
-              <option key={user.id} value={user.id}>
-                {user.name}
-              </option>
-            ))}
-          </select>
-        </div>
+      <Card className="p-4">
+        <form
+          method="get"
+          action="/admin/audit"
+          className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-6"
+        >
+          <Field id="audit-user" label="User" className="lg:col-span-2">
+            <Select
+              id="audit-user"
+              name="userId"
+              defaultValue={query.userId ?? ''}
+            >
+              <option value="">Anyone</option>
+              {users.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
 
-        <div>
-          <label htmlFor="audit-entity" className="block text-xs font-medium">
-            Entity
-          </label>
-          <select
-            id="audit-entity"
-            name="entity"
-            defaultValue={query.entity ?? ''}
-            className={controlClass}
-          >
-            <option value="">Any entity</option>
-            {AUDIT_ENTITIES.map((entity) => (
-              <option key={entity} value={entity}>
-                {entity}
-              </option>
-            ))}
-          </select>
-        </div>
+          <Field id="audit-entity" label="Entity">
+            <Select
+              id="audit-entity"
+              name="entity"
+              defaultValue={query.entity ?? ''}
+            >
+              <option value="">Any entity</option>
+              {AUDIT_ENTITIES.map((entity) => (
+                <option key={entity} value={entity}>
+                  {entity}
+                </option>
+              ))}
+            </Select>
+          </Field>
 
-        <div>
-          <label htmlFor="audit-action" className="block text-xs font-medium">
-            Action
-          </label>
-          <select
-            id="audit-action"
-            name="action"
-            defaultValue={query.action ?? ''}
-            className={controlClass}
-          >
-            <option value="">Any action</option>
-            {AUDIT_ACTIONS.map((action) => (
-              <option key={action} value={action}>
-                {ACTION_LABELS[action] ?? action}
-              </option>
-            ))}
-          </select>
-        </div>
+          <Field id="audit-action" label="Action">
+            <Select
+              id="audit-action"
+              name="action"
+              defaultValue={query.action ?? ''}
+            >
+              <option value="">Any action</option>
+              {AUDIT_ACTIONS.map((action) => (
+                <option key={action} value={action}>
+                  {ACTION_LABELS[action] ?? action}
+                </option>
+              ))}
+            </Select>
+          </Field>
 
-        <div>
-          <label htmlFor="audit-from" className="block text-xs font-medium">
-            From
-          </label>
-          <input
-            id="audit-from"
-            name="from"
-            type="date"
-            defaultValue={
-              query.from ? query.from.toISOString().slice(0, 10) : ''
-            }
-            className={controlClass}
-          />
-        </div>
+          <Field id="audit-from" label="From">
+            <Input
+              id="audit-from"
+              name="from"
+              type="date"
+              defaultValue={
+                query.from ? query.from.toISOString().slice(0, 10) : ''
+              }
+            />
+          </Field>
 
-        <div>
-          <label htmlFor="audit-to" className="block text-xs font-medium">
-            To
-          </label>
-          <input
-            id="audit-to"
-            name="to"
-            type="date"
-            defaultValue={query.to ? query.to.toISOString().slice(0, 10) : ''}
-            className={controlClass}
-          />
-        </div>
+          <Field id="audit-to" label="To">
+            <Input
+              id="audit-to"
+              name="to"
+              type="date"
+              defaultValue={query.to ? query.to.toISOString().slice(0, 10) : ''}
+            />
+          </Field>
 
-        <div className="flex items-end gap-2 lg:col-span-6">
-          <button
-            type="submit"
-            className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
-          >
-            Apply filters
-          </button>
-          <Link
-            href="/admin/audit"
-            className="px-2 py-1.5 text-sm text-neutral-600 underline dark:text-neutral-300"
-          >
-            Reset
-          </Link>
-        </div>
-      </form>
+          <div className="flex items-center gap-2 lg:col-span-6">
+            <Button type="submit" variant="tinted">
+              Apply filters
+            </Button>
+            <Link
+              href="/admin/audit"
+              className="text-subheadline text-muted hover:text-foreground px-2 font-medium"
+            >
+              Reset
+            </Link>
+          </div>
+        </form>
+      </Card>
 
       {filtersInvalid && (
-        <p className="text-sm text-red-600 dark:text-red-400">
+        <p className="text-exceeded-text text-footnote">
           Some filters were invalid, so the log shows the newest entries.
         </p>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
-        <table className="w-full min-w-[48rem] text-left text-sm">
-          <thead className="border-b border-neutral-200 text-xs tracking-wide text-neutral-500 uppercase dark:border-neutral-800">
-            <tr>
-              <th scope="col" className="px-4 py-3">
-                When
-              </th>
-              <th scope="col" className="px-4 py-3">
-                User
-              </th>
-              <th scope="col" className="px-4 py-3">
-                Action
-              </th>
-              <th scope="col" className="px-4 py-3">
-                Entity
-              </th>
-              <th scope="col" className="px-4 py-3">
-                Record
-              </th>
-            </tr>
-          </thead>
+      <TableContainer>
+        <Table className="min-w-0 sm:min-w-[48rem]">
+          <THead>
+            <TR className="hover:bg-transparent">
+              <TH>When</TH>
+              <TH>User</TH>
+              <TH>Action</TH>
+              <TH>Entity</TH>
+              <TH>Record</TH>
+            </TR>
+          </THead>
           <tbody>
             {result.items.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={5}
-                  className="px-4 py-10 text-center text-neutral-500"
-                >
-                  No audit entries match these filters.
-                </td>
-              </tr>
+              <TableEmpty
+                colSpan={5}
+                icon={<Icon icon={ScrollText} size={20} />}
+                title="No audit entries match these filters."
+                description="Every write in the organization is recorded here."
+              />
             ) : (
               result.items.map((entry) => (
-                <tr
-                  key={entry.id}
-                  className="border-b border-neutral-100 last:border-0 dark:border-neutral-900"
-                >
-                  <td
-                    className="px-4 py-3 whitespace-nowrap tabular-nums"
-                    title={entry.createdAt}
+                <TR key={entry.id}>
+                  <TD
+                    label="When"
+                    className="text-muted whitespace-nowrap tabular-nums"
                   >
-                    {formatTimestamp(entry.createdAt)}
-                  </td>
-                  <td className="px-4 py-3">
+                    <span title={entry.createdAt}>
+                      {formatTimestamp(entry.createdAt)}
+                    </span>
+                  </TD>
+                  <TD label="User">
                     {entry.userName ?? (
-                      <span className="text-neutral-500">
+                      <span className="text-muted">
                         Unknown user ({entry.userId})
                       </span>
                     )}
-                  </td>
-                  <td className="px-4 py-3">
+                  </TD>
+                  <TD label="Action">
                     {ACTION_LABELS[entry.action] ?? entry.action}
-                  </td>
-                  <td className="px-4 py-3">{entry.entity}</td>
-                  <td className="px-4 py-3 font-mono text-xs">
+                  </TD>
+                  <TD label="Entity">{entry.entity}</TD>
+                  <TD label="Record" className="text-muted font-mono text-xs">
                     {entry.entityId}
-                  </td>
-                </tr>
+                  </TD>
+                </TR>
               ))
             )}
           </tbody>
-        </table>
-      </div>
+        </Table>
+      </TableContainer>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-neutral-500">
-        <p>
+      <div className="text-footnote text-muted flex flex-wrap items-center justify-between gap-3">
+        <p className="tabular-nums">
           {result.total} entr{result.total === 1 ? 'y' : 'ies'} · page{' '}
           {result.page} of {result.totalPages}
         </p>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-2">
           {result.page > 1 && (
-            <Link href={buildUrl(result.page - 1)} className="underline">
+            <LinkButton
+              href={buildUrl(result.page - 1)}
+              variant="tinted"
+              size="compact"
+            >
               Previous
-            </Link>
+            </LinkButton>
           )}
           {result.page < result.totalPages && (
-            <Link href={buildUrl(result.page + 1)} className="underline">
+            <LinkButton
+              href={buildUrl(result.page + 1)}
+              variant="tinted"
+              size="compact"
+            >
               Next
-            </Link>
+            </LinkButton>
           )}
         </div>
       </div>

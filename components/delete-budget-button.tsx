@@ -2,7 +2,10 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { CircleAlert } from 'lucide-react'
 import { useToast } from '@/components/toast'
+import { Button } from '@/components/ui/button'
+import { Icon } from '@/components/ui/icon'
 
 export function DeleteBudgetButton({ budgetId }: { budgetId: string }) {
   const router = useRouter()
@@ -33,16 +36,18 @@ export function DeleteBudgetButton({ budgetId }: { budgetId: string }) {
 
   return (
     <span className="inline-flex flex-col items-start">
-      <button
+      <Button
         type="button"
         onClick={handleDelete}
         disabled={busy}
-        className="text-sm font-medium text-red-600 underline disabled:opacity-50 dark:text-red-400"
+        variant="destructive"
+        size="compact"
       >
         {busy ? 'Deleting…' : 'Delete'}
-      </button>
+      </Button>
       {error && (
-        <span className="mt-1 text-xs text-red-600 dark:text-red-400">
+        <span className="text-exceeded-text text-footnote mt-1 inline-flex items-center gap-1">
+          <Icon icon={CircleAlert} size={12} />
           {error}
         </span>
       )}

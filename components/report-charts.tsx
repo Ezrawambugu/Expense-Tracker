@@ -11,23 +11,44 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { formatAmount } from '@/lib/format'
+import { formatAmount, formatCompactAmount } from '@/lib/format'
 import type { CategoryTotal, TrendPoint } from '@/services/report-service'
 
-// Charts adapt to light/dark through currentColor: the wrapper sets the text
-// colour and every stroke, tick and bar inherits it.
+// Charts use the design tokens directly (var(--accent) etc.), so light and dark
+// follow the same palette as the rest of the UI, and the axis text inherits the
+// muted colour from the wrapper.
 const axisProps = {
-  tick: { fill: 'currentColor', fontSize: 12 },
+  tick: { fill: 'currentColor', fontSize: 11 },
   tickLine: false,
 } as const
 
-const tooltipStyle = {
-  borderRadius: 6,
-  fontSize: 12,
-  borderColor: 'rgb(212 212 212)',
-} as const
+const chartWrapperClass = 'h-64 w-full text-muted'
 
-const chartWrapperClass = 'h-64 w-full text-neutral-700 dark:text-neutral-200'
+// Charts are decorative duplicates of numbers that also exist in tables, so the
+// wrapper carries a role and a label instead of exposing SVG internals.
+
+// Tooltips are small glass cards, matching the floating chrome elsewhere.
+function GlassTooltip({
+  active,
+  payload,
+  label,
+  currency,
+}: {
+  active?: boolean
+  payload?: { value?: number | string }[]
+  label?: string | number
+  currency: string
+}) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="glass-strong shadow-floating rounded-control px-3 py-2">
+      <p className="text-caption text-muted">{label}</p>
+      <p className="text-subheadline text-foreground font-medium tabular-nums">
+        {formatAmount(Number(payload[0]?.value ?? 0), currency)}
+      </p>
+    </div>
+  )
+}
 
 // Monthly approved spending for the last 6 months (Phase 4 output d).
 export function TrendChart({
@@ -38,41 +59,52 @@ export function TrendChart({
   currency: string
 }) {
   return (
-    <div className={chartWrapperClass}>
+    <div
+      className={chartWrapperClass}
+      role="img"
+      aria-label="Approved spending for the last six months"
+    >
       <ResponsiveContainer width="100%" height="100%">
         <LineChart
           data={points}
           margin={{ top: 8, right: 12, bottom: 0, left: 0 }}
         >
           <CartesianGrid
-            stroke="currentColor"
-            strokeOpacity={0.15}
+            stroke="var(--separator)"
+            strokeOpacity={0.7}
             vertical={false}
           />
           <XAxis
             dataKey="month"
             {...axisProps}
-            axisLine={{ stroke: 'currentColor', strokeOpacity: 0.3 }}
+            axisLine={false}
+            tickMargin={8}
           />
           <YAxis
             {...axisProps}
             axisLine={false}
-            width={56}
-            tickFormatter={(value: number) => formatAmount(value, currency)}
+            width={64}
+            tickFormatter={(value: number) =>
+              formatCompactAmount(value, currency)
+            }
           />
           <Tooltip
-            formatter={(value) => [
-              formatAmount(Number(value), currency),
-              'Approved',
-            ]}
-            contentStyle={tooltipStyle}
+            cursor={{ stroke: 'var(--separator-strong)', strokeWidth: 1 }}
+            content={<GlassTooltip currency={currency} />}
           />
           <Line
             type="monotone"
             dataKey="total"
-            stroke="currentColor"
-            strokeWidth={2}
-            dot={{ r: 3, fill: 'currentColor' }}
+            stroke="var(--accent)"
+            strokeWidth={2.5}
+            strokeLinecap="round"
+            dot={{
+              r: 3.5,
+              fill: 'var(--surface)',
+              stroke: 'var(--accent)',
+              strokeWidth: 2,
+            }}
+            activeDot={{ r: 5, fill: 'var(--accent)', stroke: 'none' }}
           />
         </LineChart>
       </ResponsiveContainer>
@@ -89,32 +121,45 @@ export function CategoryChart({
   currency: string
 }) {
   return (
-    <div className={chartWrapperClass}>
+    <div
+      className={chartWrapperClass}
+      role="img"
+      aria-label="Approved spending by category for the selected month"
+    >
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={data}
           margin={{ top: 8, right: 12, bottom: 0, left: 0 }}
         >
           <CartesianGrid
-            stroke="currentColor"
-            strokeOpacity={0.15}
+            stroke="var(--separator)"
+            strokeOpacity={0.7}
             vertical={false}
           />
-          <XAxis dataKey="category" {...axisProps} axisLine={false} />
+          <XAxis
+            dataKey="category"
+            {...axisProps}
+            axisLine={false}
+            tickMargin={8}
+          />
           <YAxis
             {...axisProps}
             axisLine={false}
-            width={56}
-            tickFormatter={(value: number) => formatAmount(value, currency)}
+            width={64}
+            tickFormatter={(value: number) =>
+              formatCompactAmount(value, currency)
+            }
           />
           <Tooltip
-            formatter={(value) => [
-              formatAmount(Number(value), currency),
-              'Approved',
-            ]}
-            contentStyle={tooltipStyle}
+            cursor={{ fill: 'var(--accent-tint)' }}
+            content={<GlassTooltip currency={currency} />}
           />
-          <Bar dataKey="total" fill="currentColor" radius={[3, 3, 0, 0]} />
+          <Bar
+            dataKey="total"
+            fill="var(--accent)"
+            radius={[6, 6, 0, 0]}
+            maxBarSize={56}
+          />
         </BarChart>
       </ResponsiveContainer>
     </div>

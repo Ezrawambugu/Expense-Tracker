@@ -813,10 +813,12 @@ async function main() {
   )
 
   // ---------- Phase 7B: managers record their own expenses ----------
+  // Dated today: on the 1st of a month "yesterday" belongs to the previous
+  // month, where the budget created below does not exist.
   const mgrExpense = await mkExpense(manager, {
     category: 'Transport',
     amount: 42,
-    date: day(-1),
+    date: day(0),
     description: 'G manager own transport',
   })
   check(

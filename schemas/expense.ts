@@ -16,11 +16,14 @@ export function parseDateOnly(value: string): Date | null {
   return valid ? date : null
 }
 
-// A future date is anything after the end of today (UTC). Using end-of-day
-// keeps "today" valid for users whose local date is ahead of UTC.
-function endOfTodayUtc(): number {
+// A future date is anything after the end of today. Dates are calendar days
+// (stored as UTC midnight) while the forms default to the browser's local day,
+// so "today" is the later of the server's local day and its UTC day. Using
+// only one of the two rejects the default value for the first hours of the day
+// on servers east of UTC (local date is already tomorrow).
+function endOfToday(): number {
   const now = new Date()
-  return Date.UTC(
+  const endOfUtcDay = Date.UTC(
     now.getUTCFullYear(),
     now.getUTCMonth(),
     now.getUTCDate(),
@@ -29,6 +32,16 @@ function endOfTodayUtc(): number {
     59,
     999,
   )
+  const endOfLocalDay = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    23,
+    59,
+    59,
+    999,
+  ).getTime()
+  return Math.max(endOfUtcDay, endOfLocalDay)
 }
 
 const dateOnly = z
@@ -39,7 +52,7 @@ const dateOnly = z
 
 // Expense dates may not be in the future; filter bounds may be.
 const pastDate = dateOnly.refine(
-  (date) => date.getTime() <= endOfTodayUtc(),
+  (date) => date.getTime() <= endOfToday(),
   'Date cannot be in the future',
 )
 

@@ -1,11 +1,16 @@
 'use client'
 
 import { useSyncExternalStore } from 'react'
+import { Moon, Sun } from 'lucide-react'
 
 // Light/dark toggle. The choice is stored in localStorage and applied before
 // hydration by the inline script in app/layout.tsx, so there is no flash.
 // Theme state is read from the DOM (not React state) via useSyncExternalStore,
 // with a MutationObserver keeping it in sync when the class changes.
+//
+// Phase 8B: an iOS-style switch. The control is still a plain button with the
+// same accessible name ("Switch to dark/light theme") so the existing UI
+// checks keep finding it.
 
 function subscribe(onChange: () => void): () => void {
   const observer = new MutationObserver(onChange)
@@ -33,43 +38,42 @@ export function ThemeToggle() {
     }
   }
 
+  const label = dark ? 'Switch to light theme' : 'Switch to dark theme'
+
   return (
     <button
       type="button"
       onClick={toggle}
-      aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'}
-      title={dark ? 'Switch to light theme' : 'Switch to dark theme'}
-      className="rounded-md border border-neutral-200 p-1.5 text-neutral-600 hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-500 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+      aria-label={label}
+      aria-pressed={dark}
+      title={label}
+      className={`focus-visible:ring-accent/35 focus-visible:ring-offset-background duration-hover ease-apple relative h-8 w-[52px] shrink-0 rounded-full transition-colors focus-visible:ring-[3px] focus-visible:ring-offset-2 focus-visible:outline-none ${
+        dark ? 'bg-accent-fill' : 'bg-separator-strong'
+      }`}
     >
-      {dark ? (
-        // Sun (currently dark -> click for light)
-        <svg
-          aria-hidden="true"
-          viewBox="0 0 24 24"
-          className="h-4 w-4"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        >
-          <circle cx="12" cy="12" r="4" />
-          <path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
-        </svg>
-      ) : (
-        // Moon (currently light -> click for dark)
-        <svg
-          aria-hidden="true"
-          viewBox="0 0 24 24"
-          className="h-4 w-4"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
-        </svg>
-      )}
+      {/* Target-theme icons sit behind the knob. */}
+      <Moon
+        aria-hidden="true"
+        size={14}
+        strokeWidth={1.75}
+        className={`pointer-events-none absolute top-1/2 left-1.5 -translate-y-1/2 ${
+          dark ? 'text-white/60' : 'text-white/90'
+        }`}
+      />
+      <Sun
+        aria-hidden="true"
+        size={14}
+        strokeWidth={1.75}
+        className={`pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 ${
+          dark ? 'text-white/90' : 'text-white/60'
+        }`}
+      />
+      <span
+        aria-hidden="true"
+        className={`bg-surface shadow-card duration-hover ease-apple absolute top-1 left-1 h-6 w-6 rounded-full transition-transform ${
+          dark ? 'translate-x-5' : 'translate-x-0'
+        }`}
+      />
     </button>
   )
 }

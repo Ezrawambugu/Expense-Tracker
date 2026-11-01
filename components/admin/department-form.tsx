@@ -5,11 +5,11 @@ import { useRouter } from 'next/navigation'
 import { z } from 'zod'
 import { DepartmentNameSchema } from '@/schemas/admin'
 import { useToast } from '@/components/toast'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Field, FormError, Input } from '@/components/ui/field'
 
 type FieldErrors = Record<string, string[]>
-
-const inputClass =
-  'mt-1 w-full rounded-md border border-neutral-300 bg-transparent px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none dark:border-neutral-700'
 
 // Inline "create department" form above the departments table.
 export function DepartmentForm() {
@@ -56,54 +56,42 @@ export function DepartmentForm() {
   }
 
   return (
-    <section
-      aria-labelledby="create-department-heading"
-      className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800"
-    >
-      <h2 id="create-department-heading" className="text-base font-semibold">
-        Create department
-      </h2>
-      <form onSubmit={handleSubmit} noValidate className="mt-3">
-        {formError && (
-          <p
-            role="alert"
-            className="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
-          >
-            {formError}
-          </p>
-        )}
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="w-full max-w-xs">
-            <label
-              htmlFor="new-dept-name"
-              className="block text-sm font-medium"
-            >
-              Department name
-            </label>
-            <input
+    <Card className="p-5 sm:p-6">
+      <section aria-labelledby="create-department-heading">
+        <h2 id="create-department-heading" className="text-headline">
+          Create department
+        </h2>
+        <form onSubmit={handleSubmit} noValidate className="mt-4">
+          {formError && (
+            <div className="mb-4">
+              <FormError message={formError} />
+            </div>
+          )}
+          <div className="flex flex-wrap items-end gap-3">
+            <Field
               id="new-dept-name"
-              required
-              maxLength={80}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              aria-invalid={!!fieldErrors.name}
-              className={inputClass}
-            />
-            {fieldErrors.name && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                {fieldErrors.name[0]}
-              </p>
-            )}
+              label="Department name"
+              error={fieldErrors.name?.[0]}
+              className="w-full max-w-xs"
+            >
+              <Input
+                id="new-dept-name"
+                required
+                maxLength={80}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                aria-invalid={!!fieldErrors.name}
+                aria-describedby={
+                  fieldErrors.name ? 'new-dept-name-error' : undefined
+                }
+              />
+            </Field>
+            <Button type="submit" disabled={busy}>
+              {busy ? 'Creating…' : 'Create department'}
+            </Button>
           </div>
-          <button
-            type="submit"
-            disabled={busy}
-            className="rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
-          >
-            {busy ? 'Creating…' : 'Create department'}
-          </button>
-        </div>
-      </form>
-    </section>
+        </form>
+      </section>
+    </Card>
   )
 }
