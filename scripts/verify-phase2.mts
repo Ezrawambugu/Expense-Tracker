@@ -637,8 +637,16 @@ async function uiChecks(emails: {
     // Staff: create -> edit -> delete through the UI.
     const staff = await newPage(emails.staffEmail)
     await staff.goto(`${BASE}/expenses`, { waitUntil: 'domcontentloaded' })
+    // The page streams: the header actions can arrive just after
+    // domcontentloaded, so wait for the link instead of sampling the DOM once.
     const newLink = staff.getByRole('link', { name: /new expense/i })
-    check('UI staff sees "New expense"', await newLink.isVisible())
+    let newLinkVisible = true
+    try {
+      await newLink.waitFor({ state: 'visible', timeout: 10_000 })
+    } catch {
+      newLinkVisible = false
+    }
+    check('UI staff sees "New expense"', newLinkVisible)
 
     await newLink.click()
     await staff.waitForURL('**/expenses/new', { timeout: 10_000 })
@@ -695,6 +703,13 @@ async function uiChecks(emails: {
     // people's department rows (Phase 7B).
     const manager = await newPage(emails.managerEmail)
     await manager.goto(`${BASE}/expenses`, { waitUntil: 'domcontentloaded' })
+    try {
+      await manager
+        .getByRole('link', { name: /new expense/i })
+        .waitFor({ state: 'visible', timeout: 10_000 })
+    } catch {
+      // The count below reports the failure.
+    }
     check(
       'UI manager has a "New expense" action (Phase 7B)',
       (await manager.getByRole('link', { name: /new expense/i }).count()) === 1,
